@@ -5,6 +5,7 @@ import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Customers from './pages/Customers'
+import Products from './pages/Products'
 import Login from './pages/Login'
 import { supabase } from './lib/supabase'
 
@@ -26,9 +27,11 @@ function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null)
-    })
+    } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null)
+      },
+    )
 
     return () => {
       subscription.unsubscribe()
@@ -56,22 +59,19 @@ function App() {
   return (
     <Routes>
       <Route element={<Layout />}>
-        <Route path="/" element={<Dashboard />} />
-        <Route path="/clientes" element={<Customers />} />
+        <Route
+          path="/"
+          element={<Dashboard />}
+        />
+
+        <Route
+          path="/clientes"
+          element={<Customers />}
+        />
 
         <Route
           path="/produtos"
-          element={
-            <div className="rounded-2xl bg-white p-8 text-center">
-              <h2 className="text-xl font-bold text-gray-900">
-                Produtos
-              </h2>
-
-              <p className="mt-2 text-gray-500">
-                Módulo em construção.
-              </p>
-            </div>
-          }
+          element={<Products />}
         />
 
         <Route
@@ -104,7 +104,10 @@ function App() {
           }
         />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route
+          path="*"
+          element={<Navigate to="/" replace />}
+        />
       </Route>
     </Routes>
   )
