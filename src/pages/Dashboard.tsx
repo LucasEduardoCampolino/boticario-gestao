@@ -1,11 +1,41 @@
+import { useEffect, useState } from 'react'
+import { supabase } from '../lib/supabase'
+
 function Dashboard() {
+  const [userName, setUserName] = useState('')
+
+  useEffect(() => {
+    async function loadProfile() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      if (!user) return
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('name')
+        .eq('id', user.id)
+        .single()
+
+      if (error) {
+        console.error('Erro ao carregar perfil:', error)
+        return
+      }
+
+      setUserName(data?.name || 'Revendedora')
+    }
+
+    loadProfile()
+  }, [])
+
   return (
     <div className="space-y-6">
       <section>
         <p className="text-sm text-gray-500">Visão geral</p>
 
         <h2 className="mt-1 text-2xl font-bold text-gray-900">
-          Olá! 👋
+          Olá, {userName || 'Revendedora'}! 👋
         </h2>
 
         <p className="mt-1 text-gray-600">
