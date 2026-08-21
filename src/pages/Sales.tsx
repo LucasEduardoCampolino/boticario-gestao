@@ -1,6 +1,8 @@
 // src/pages/Sales.tsx
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../components/ToastContainer'
 
 type Sale = {
   id: string
@@ -37,9 +39,11 @@ function formatCurrency(value: number) {
 }
 
 function formatDate(value: string) {
-  return new Intl.DateTimeFormat('pt-BR').format(
-    new Date(`${value}T00:00:00`),
-  )
+  return new Intl.DateTimeFormat('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(`${value}T00:00:00`))
 }
 
 function getErrorMessage(error: unknown) {
@@ -51,10 +55,11 @@ function getErrorMessage(error: unknown) {
 }
 
 function Sales() {
+  const { showToast } = useToast()
+  
   const [sales, setSales] = useState<Sale[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
   const [filter, setFilter] = useState<'all' | 'pending' | 'paid'>('all')
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -96,6 +101,7 @@ function Sales() {
             )
           `,
         )
+        .neq('status', 'cancelled')
         .order('sale_date', { ascending: false })
         .limit(100)
 
@@ -127,6 +133,7 @@ function Sales() {
       setSales(formattedSales)
     } catch (err) {
       setError(getErrorMessage(err))
+      showToast('Não foi possível carregar as vendas.', 'error')
     } finally {
       setLoading(false)
     }
@@ -232,11 +239,12 @@ function Sales() {
 
       setShowPaymentModal(false)
       setSelectedSale(null)
-      setSuccess('Pagamento registrado com sucesso!')
+      showToast('Pagamento registrado com sucesso!', 'success')
       await loadSales()
     } catch (err) {
       console.error('Erro ao registrar pagamento:', err)
       setError(getErrorMessage(err))
+      showToast('Não foi possível registrar o pagamento.', 'error')
     } finally {
       setSavingPayment(false)
     }
@@ -261,16 +269,10 @@ function Sales() {
         </p>
       </div>
 
-      {/* Mensagens */}
+      {/* Mensagens de erro */}
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
-        </div>
-      )}
-
-      {success && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-          {success}
         </div>
       )}
 
@@ -394,9 +396,7 @@ function Sales() {
                         ? 'Pendente'
                         : sale.status === 'partial'
                           ? 'Parcial'
-                          : sale.status === 'cancelled'
-                            ? 'Cancelada'
-                            : sale.status}
+                          : sale.status}
                   </span>
                 </div>
 
@@ -445,16 +445,25 @@ function Sales() {
                   </div>
                 )}
 
-                {/* Botão para registrar pagamento */}
-                {isPending && (
-                  <button
-                    type="button"
-                    onClick={() => handleOpenPaymentModal(sale)}
-                    className="mt-4 w-full rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                {/* Ações */}
+                <div className="mt-4 space-y-2">
+                  {isPending && (
+                    <button
+                      type="button"
+                      onClick={() => handleOpenPaymentModal(sale)}
+                      className="w-full rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                    >
+                      💰 Registrar pagamento
+                    </button>
+                  )}
+
+                  <Link
+                    to={`/vendas/${sale.id}`}
+                    className="block w-full rounded-xl bg-gray-50 px-4 py-3 text-center text-sm font-semibold text-gray-700 hover:bg-gray-100"
                   >
-                    💰 Registrar pagamento
-                  </button>
-                )}
+                    Ver detalhes
+                  </Link>
+                </div>
               </div>
             )
           })}
