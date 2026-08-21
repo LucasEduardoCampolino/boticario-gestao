@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Customers from './pages/Customers'
 import Products from './pages/Products'
+import Sales from './pages/Sales'
 import Login from './pages/Login'
 import { supabase } from './lib/supabase'
 
@@ -76,17 +77,7 @@ function App() {
 
         <Route
           path="/vendas"
-          element={
-            <div className="rounded-2xl bg-white p-8 text-center">
-              <h2 className="text-xl font-bold text-gray-900">
-                Vendas
-              </h2>
-
-              <p className="mt-2 text-gray-500">
-                Módulo em construção.
-              </p>
-            </div>
-          }
+          element={<Sales />}
         />
 
         <Route
