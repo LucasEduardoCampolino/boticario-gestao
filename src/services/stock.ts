@@ -1,8 +1,7 @@
+// src/services/stock.ts
 import { supabase } from '../lib/supabase'
 
-export type StockMovementType =
-  | 'entrada'
-  | 'saida'
+export type StockMovementType = 'entrada' | 'saida'
 
 export interface RegisterStockMovementInput {
   productId: string

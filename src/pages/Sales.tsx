@@ -1,26 +1,6 @@
+// src/pages/Sales.tsx
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
-
-type Customer = {
-  id: string
-  name: string
-}
-
-type Product = {
-  id: string
-  code: string | null
-  name: string
-  category: string | null
-  sale_price: number
-  stock_quantity: number
-  minimum_stock: number
-  active: boolean
-}
-
-type SaleItem = {
-  product_id: string
-  quantity: number
-}
 
 type Sale = {
   id: string
@@ -33,6 +13,12 @@ type Sale = {
   customer: {
     name: string
   } | null
+  payments: {
+    id: string
+    amount: number
+    method: string
+    payment_date: string
+  }[]
 }
 
 const paymentMethods = [
@@ -65,96 +51,57 @@ function getErrorMessage(error: unknown) {
 }
 
 function Sales() {
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [products, setProducts] = useState<Product[]>([])
   const [sales, setSales] = useState<Sale[]>([])
-
-  const [customerId, setCustomerId] = useState('')
-  const [items, setItems] = useState<SaleItem[]>([])
-
-  const [discount, setDiscount] = useState('')
-  const [paymentMethod, setPaymentMethod] = useState('pix')
-  const [notes, setNotes] = useState('')
-
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [filter, setFilter] = useState<'all' | 'pending' | 'paid'>('all')
+  const [searchTerm, setSearchTerm] = useState('')
+
+  // Modal de pagamento
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentMethodModal, setPaymentMethodModal] = useState('pix')
+  const [savingPayment, setSavingPayment] = useState(false)
 
   useEffect(() => {
-    loadData()
+    loadSales()
   }, [])
 
-  async function loadData() {
+  async function loadSales() {
     setLoading(true)
     setError('')
 
     try {
-      const [
-        customersResult,
-        productsResult,
-        salesResult,
-      ] = await Promise.all([
-        supabase
-          .from('customers')
-          .select('id, name')
-          .order('name'),
-
-        supabase
-          .from('products')
-          .select(
-            `
+      const { data, error: salesError } = await supabase
+        .from('sales')
+        .select(
+          `
+            id,
+            sale_date,
+            subtotal,
+            discount,
+            total,
+            status,
+            notes,
+            customers (
+              name
+            ),
+            payments (
               id,
-              code,
-              name,
-              category,
-              sale_price,
-              stock_quantity,
-              minimum_stock,
-              active
-            `,
-          )
-          .eq('active', true)
-          .order('name'),
+              amount,
+              method,
+              payment_date
+            )
+          `,
+        )
+        .order('sale_date', { ascending: false })
+        .limit(100)
 
-        supabase
-          .from('sales')
-          .select(
-            `
-              id,
-              sale_date,
-              subtotal,
-              discount,
-              total,
-              status,
-              notes,
-              customers (
-                name
-              )
-            `,
-          )
-          .order('sale_date', { ascending: false })
-          .limit(20),
-      ])
+      if (salesError) throw salesError
 
-      if (customersResult.error) {
-        throw customersResult.error
-      }
-
-      if (productsResult.error) {
-        throw productsResult.error
-      }
-
-      if (salesResult.error) {
-        throw salesResult.error
-      }
-
-      setCustomers(customersResult.data ?? [])
-      setProducts(productsResult.data ?? [])
-
-      const formattedSales: Sale[] = (
-        salesResult.data ?? []
-      ).map((sale) => {
+      const formattedSales: Sale[] = (data ?? []).map((sale) => {
         const customerData = Array.isArray(sale.customers)
           ? sale.customers[0]
           : sale.customers
@@ -167,11 +114,13 @@ function Sales() {
           total: Number(sale.total),
           status: sale.status,
           notes: sale.notes,
-          customer: customerData
-            ? {
-                name: customerData.name,
-              }
-            : null,
+          customer: customerData ? { name: customerData.name } : null,
+          payments: (sale.payments || []).map((p) => ({
+            id: p.id,
+            amount: Number(p.amount),
+            method: p.method,
+            payment_date: p.payment_date,
+          })),
         }
       })
 
@@ -183,209 +132,132 @@ function Sales() {
     }
   }
 
-  function addProduct(productId: string) {
-    if (!productId) {
-      return
-    }
-
-    const existing = items.find(
-      (item) => item.product_id === productId,
-    )
-
-    if (existing) {
-      setItems(
-        items.map((item) =>
-          item.product_id === productId
-            ? {
-                ...item,
-                quantity: item.quantity + 1,
-              }
-            : item,
-        ),
-      )
-
-      return
-    }
-
-    setItems([
-      ...items,
-      {
-        product_id: productId,
-        quantity: 1,
-      },
-    ])
-  }
-
-  function updateQuantity(
-    productId: string,
-    quantity: number,
-  ) {
-    const product = products.find(
-      (item) => item.id === productId,
-    )
-
-    if (!product) {
-      return
-    }
-
-    const safeQuantity = Math.max(
-      1,
-      Math.min(quantity, product.stock_quantity),
-    )
-
-    setItems(
-      items.map((item) =>
-        item.product_id === productId
-          ? {
-              ...item,
-              quantity: safeQuantity,
-            }
-          : item,
-      ),
-    )
-  }
-
-  function removeProduct(productId: string) {
-    setItems(
-      items.filter(
-        (item) => item.product_id !== productId,
-      ),
-    )
-  }
-
-  const saleDetails = useMemo(() => {
-    return items
-      .map((item) => {
-        const product = products.find(
-          (productItem) =>
-            productItem.id === item.product_id,
-        )
-
-        if (!product) {
-          return null
+  const filteredSales = useMemo(() => {
+    return sales.filter((sale) => {
+      // Filtrar por status
+      if (filter === 'pending') {
+        if (sale.status !== 'pending' && sale.status !== 'partial') {
+          return false
         }
-
-        return {
-          ...item,
-          product,
-          total:
-            Number(product.sale_price) *
-            item.quantity,
+      } else if (filter === 'paid') {
+        if (sale.status !== 'paid') {
+          return false
         }
-      })
-      .filter(Boolean) as Array<
-      SaleItem & {
-        product: Product
-        total: number
       }
-    >
-  }, [items, products])
 
-  const subtotal = useMemo(() => {
-    return saleDetails.reduce(
-      (sum, item) => sum + item.total,
-      0,
-    )
-  }, [saleDetails])
+      // Filtrar por busca
+      if (searchTerm) {
+        const term = searchTerm.toLowerCase()
+        return (
+          sale.customer?.name.toLowerCase().includes(term) ||
+          sale.id.toLowerCase().includes(term) ||
+          sale.notes?.toLowerCase().includes(term)
+        )
+      }
 
-  const discountValue = Math.max(
-    0,
-    Number(discount.replace(',', '.')) || 0,
-  )
+      return true
+    })
+  }, [sales, filter, searchTerm])
 
-  const total = Math.max(
-    0,
-    subtotal - discountValue,
-  )
+  function getPendingAmount(sale: Sale) {
+    const paidAmount = sale.payments.reduce((sum, p) => sum + p.amount, 0)
+    return Math.max(0, sale.total - paidAmount)
+  }
 
-  async function handleSubmit(
-    event: React.FormEvent<HTMLFormElement>,
-  ) {
-    event.preventDefault()
+  function handleOpenPaymentModal(sale: Sale) {
+    const remainingAmount = getPendingAmount(sale)
 
+    setSelectedSale(sale)
+    setPaymentAmount(remainingAmount.toString())
+    setPaymentMethodModal('pix')
+    setShowPaymentModal(true)
     setError('')
-    setSuccess('')
+  }
 
-    if (items.length === 0) {
-      setError(
-        'Adicione pelo menos um produto à venda.',
-      )
+  function handleClosePaymentModal() {
+    if (savingPayment) return
+    setShowPaymentModal(false)
+    setSelectedSale(null)
+    setPaymentAmount('')
+    setPaymentMethodModal('pix')
+    setError('')
+  }
+
+  async function handleRegisterPayment(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+
+    if (!selectedSale) return
+
+    const amount = Number(paymentAmount.replace(',', '.'))
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Informe um valor válido para o pagamento.')
       return
     }
 
-    for (const item of saleDetails) {
-      if (
-        item.quantity > item.product.stock_quantity
-      ) {
-        setError(
-          `Estoque insuficiente para ${item.product.name}.`,
-        )
-        return
-      }
-    }
+    const paidAmount = selectedSale.payments.reduce((sum, p) => sum + p.amount, 0)
+    const remainingAmount = selectedSale.total - paidAmount
 
-    setSaving(true)
+    if (amount > remainingAmount) {
+      setError(`O valor máximo é ${formatCurrency(remainingAmount)}.`)
+      return
+    }
 
     try {
-      const { data, error: rpcError } =
-        await supabase.rpc('create_sale', {
-          p_customer_id: customerId || null,
-          p_discount: discountValue,
-          p_payment_method: paymentMethod,
-          p_notes: notes.trim() || null,
-          p_items: items,
+      setSavingPayment(true)
+
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          sale_id: selectedSale.id,
+          amount,
+          method: paymentMethodModal,
+          payment_date: new Date().toISOString().split('T')[0],
+          notes: 'Pagamento registrado',
         })
 
-      if (rpcError) {
-        console.error('ERRO CREATE_SALE:', rpcError)
+      if (paymentError) throw paymentError
 
-        throw new Error(
-            `${rpcError.message} | Código: ${rpcError.code ?? 'N/A'}`
-        )
-      }   
+      // Verificar se o pagamento total foi atingido
+      const newPaidAmount = paidAmount + amount
+      const isFullyPaid = newPaidAmount >= selectedSale.total
 
-      setSuccess(
-        `Venda registrada com sucesso! Nº ${String(data).slice(0, 8)}`,
-      )
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update({ status: isFullyPaid ? 'paid' : 'partial' })
+        .eq('id', selectedSale.id)
 
-      setCustomerId('')
-      setItems([])
-      setDiscount('')
-      setPaymentMethod('pix')
-      setNotes('')
+      if (updateError) throw updateError
 
-      await loadData()
+      setShowPaymentModal(false)
+      setSelectedSale(null)
+      setSuccess('Pagamento registrado com sucesso!')
+      await loadSales()
     } catch (err) {
+      console.error('Erro ao registrar pagamento:', err)
       setError(getErrorMessage(err))
     } finally {
-      setSaving(false)
+      setSavingPayment(false)
     }
   }
 
-  if (loading) {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="text-center">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
+  const pendingCount = sales.filter(
+    (sale) => sale.status === 'pending' || sale.status === 'partial',
+  ).length
 
-          <p className="mt-4 text-sm text-gray-500">
-            Carregando vendas...
-          </p>
-        </div>
-      </div>
-    )
-  }
+  const paidCount = sales.filter((sale) => sale.status === 'paid').length
 
   return (
     <div className="space-y-6">
       {/* Cabeçalho */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
-          Vendas
-        </h1>
-
+        <p className="text-sm text-gray-500">Vendas</p>
+        <h2 className="mt-1 text-2xl font-bold text-gray-900">
+          Histórico de Vendas
+        </h2>
         <p className="mt-1 text-sm text-gray-500">
-          Registre suas vendas e acompanhe o histórico.
+          Acompanhe e gerencie suas vendas
         </p>
       </div>
 
@@ -402,359 +274,143 @@ function Sales() {
         </div>
       )}
 
-      {/* Nova venda */}
-      <form
-        onSubmit={handleSubmit}
-        className="rounded-2xl bg-white p-4 shadow-sm sm:p-6"
-      >
-        <div className="mb-6">
-          <h2 className="text-lg font-bold text-gray-900">
-            Nova venda
-          </h2>
-
-          <p className="mt-1 text-sm text-gray-500">
-            Selecione os produtos e confirme a venda.
-          </p>
-        </div>
-
-        <div className="space-y-5">
-          {/* Cliente */}
-          <div>
-            <label
-              htmlFor="customer"
-              className="mb-2 block text-sm font-medium text-gray-700"
-            >
-              Cliente
-            </label>
-
-            <select
-              id="customer"
-              value={customerId}
-              onChange={(event) =>
-                setCustomerId(event.target.value)
-              }
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
-            >
-              <option value="">
-                Consumidor não cadastrado
-              </option>
-
-              {customers.map((customer) => (
-                <option
-                  key={customer.id}
-                  value={customer.id}
-                >
-                  {customer.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Adicionar produto */}
-          <div>
-            <label
-              htmlFor="product"
-              className="mb-2 block text-sm font-medium text-gray-700"
-            >
-              Adicionar produto
-            </label>
-
-            <select
-              id="product"
-              value=""
-              onChange={(event) => {
-                addProduct(event.target.value)
-              }}
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
-            >
-              <option value="">
-                Selecione um produto...
-              </option>
-
-              {products
-                .filter(
-                  (product) =>
-                    product.stock_quantity > 0,
-                )
-                .map((product) => (
-                  <option
-                    key={product.id}
-                    value={product.id}
-                  >
-                    {product.name} —{' '}
-                    {formatCurrency(
-                      Number(product.sale_price),
-                    )}{' '}
-                    — estoque:{' '}
-                    {product.stock_quantity}
-                  </option>
-                ))}
-            </select>
-          </div>
-
-          {/* Produtos */}
-          {saleDetails.length > 0 && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-semibold text-gray-700">
-                Produtos da venda
-              </h3>
-
-              {saleDetails.map((item) => (
-                <div
-                  key={item.product_id}
-                  className="rounded-xl border border-gray-200 p-4"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-medium text-gray-900">
-                        {item.product.name}
-                      </p>
-
-                      {item.product.code && (
-                        <p className="mt-1 text-xs text-gray-500">
-                          Código: {item.product.code}
-                        </p>
-                      )}
-
-                      <p className="mt-1 text-sm text-gray-500">
-                        {formatCurrency(
-                          Number(item.product.sale_price),
-                        )}{' '}
-                        cada
-                      </p>
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        removeProduct(item.product_id)
-                      }
-                      className="rounded-lg px-2 py-1 text-sm text-red-600 hover:bg-red-50"
-                    >
-                      Remover
-                    </button>
-                  </div>
-
-                  <div className="mt-4 flex items-center justify-between gap-4">
-                    <div className="flex items-center rounded-xl border border-gray-300">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateQuantity(
-                            item.product_id,
-                            item.quantity - 1,
-                          )
-                        }
-                        disabled={item.quantity <= 1}
-                        className="px-4 py-2 text-lg text-gray-600 disabled:opacity-30"
-                      >
-                        −
-                      </button>
-
-                      <span className="min-w-10 text-center font-semibold">
-                        {item.quantity}
-                      </span>
-
-                      <button
-                        type="button"
-                        onClick={() =>
-                          updateQuantity(
-                            item.product_id,
-                            item.quantity + 1,
-                          )
-                        }
-                        disabled={
-                          item.quantity >=
-                          item.product.stock_quantity
-                        }
-                        className="px-4 py-2 text-lg text-gray-600 disabled:opacity-30"
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <p className="font-bold text-gray-900">
-                      {formatCurrency(item.total)}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-
-          {/* Valores */}
-          <div className="rounded-xl bg-gray-50 p-4">
-            <div className="flex justify-between text-sm text-gray-600">
-              <span>Subtotal</span>
-
-              <span>
-                {formatCurrency(subtotal)}
-              </span>
-            </div>
-
-            <div className="mt-3 flex items-center justify-between gap-4">
-              <label
-                htmlFor="discount"
-                className="text-sm text-gray-600"
-              >
-                Desconto
-              </label>
-
-              <div className="flex w-32 items-center rounded-lg border border-gray-300 bg-white">
-                <span className="pl-3 text-sm text-gray-400">
-                  R$
-                </span>
-
-                <input
-                  id="discount"
-                  type="text"
-                  inputMode="decimal"
-                  value={discount}
-                  onChange={(event) =>
-                    setDiscount(event.target.value)
-                  }
-                  placeholder="0,00"
-                  className="w-full bg-transparent px-2 py-2 text-right text-sm outline-none"
-                />
-              </div>
-            </div>
-
-            <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
-              <span className="font-bold text-gray-900">
-                Total
-              </span>
-
-              <span className="text-xl font-bold text-green-600">
-                {formatCurrency(total)}
-              </span>
-            </div>
-          </div>
-
-          {/* Pagamento */}
-          <div>
-            <label
-              htmlFor="payment"
-              className="mb-2 block text-sm font-medium text-gray-700"
-            >
-              Forma de pagamento
-            </label>
-
-            <select
-              id="payment"
-              value={paymentMethod}
-              onChange={(event) =>
-                setPaymentMethod(event.target.value)
-              }
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
-            >
-              {paymentMethods.map((method) => (
-                <option
-                  key={method.value}
-                  value={method.value}
-                >
-                  {method.label}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Observação */}
-          <div>
-            <label
-              htmlFor="notes"
-              className="mb-2 block text-sm font-medium text-gray-700"
-            >
-              Observação
-            </label>
-
-            <textarea
-              id="notes"
-              value={notes}
-              onChange={(event) =>
-                setNotes(event.target.value)
-              }
-              rows={3}
-              placeholder="Observações da venda..."
-              className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
-            />
-          </div>
-
-          {/* Confirmar */}
+      {/* Filtros */}
+      <section className="rounded-2xl bg-white p-4 shadow-sm">
+        <div className="flex gap-2">
           <button
-            type="submit"
-            disabled={
-              saving ||
-              items.length === 0 ||
-              total <= 0
-            }
-            className="w-full rounded-xl bg-green-600 px-5 py-4 font-semibold text-white transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-gray-300"
+            type="button"
+            onClick={() => setFilter('all')}
+            className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+              filter === 'all'
+                ? 'bg-gray-900 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
           >
-            {saving
-              ? 'Registrando venda...'
-              : 'Finalizar venda'}
+            Todas ({sales.length})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter('pending')}
+            className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+              filter === 'pending'
+                ? 'bg-orange-600 text-white'
+                : 'bg-orange-50 text-orange-700 hover:bg-orange-100'
+            }`}
+          >
+            Pendentes ({pendingCount})
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setFilter('paid')}
+            className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
+              filter === 'paid'
+                ? 'bg-green-600 text-white'
+                : 'bg-green-50 text-green-700 hover:bg-green-100'
+            }`}
+          >
+            Pagas ({paidCount})
           </button>
         </div>
-      </form>
 
-      {/* Histórico */}
-      <section className="rounded-2xl bg-white p-4 shadow-sm sm:p-6">
-        <div className="mb-5">
-          <h2 className="text-lg font-bold text-gray-900">
-            Últimas vendas
-          </h2>
+        <div className="mt-3">
+          <input
+            type="search"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="🔎 Buscar por cliente, ID ou observação..."
+            className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-100"
+          />
+        </div>
+      </section>
 
+      {/* Lista de vendas */}
+      {loading ? (
+        <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
+          <p className="mt-3 text-sm text-gray-500">Carregando vendas...</p>
+        </div>
+      ) : filteredSales.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
+          <div className="text-4xl">💰</div>
+          <h3 className="mt-3 font-semibold text-gray-900">
+            {filter === 'pending'
+              ? 'Nenhuma venda pendente'
+              : filter === 'paid'
+                ? 'Nenhuma venda paga'
+                : 'Nenhuma venda registrada'}
+          </h3>
           <p className="mt-1 text-sm text-gray-500">
-            As 20 vendas mais recentes.
+            {filter === 'pending'
+              ? 'Não há vendas aguardando pagamento.'
+              : filter === 'paid'
+                ? 'Não há vendas pagas registradas.'
+                : 'Registre sua primeira venda para começar.'}
           </p>
         </div>
+      ) : (
+        <div className="space-y-3">
+          {filteredSales.map((sale) => {
+            const pendingAmount = getPendingAmount(sale)
+            const isPending = sale.status === 'pending' || sale.status === 'partial'
 
-        {sales.length === 0 ? (
-          <div className="rounded-xl bg-gray-50 p-8 text-center">
-            <p className="text-sm text-gray-500">
-              Nenhuma venda registrada ainda.
-            </p>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {sales.map((sale) => (
+            return (
               <div
                 key={sale.id}
-                className="rounded-xl border border-gray-200 p-4"
+                className="rounded-2xl bg-white p-4 shadow-sm"
               >
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
                     <p className="font-semibold text-gray-900">
-                      {sale.customer?.name ??
-                        'Consumidor não cadastrado'}
+                      {sale.customer?.name ?? 'Consumidor não cadastrado'}
                     </p>
 
                     <p className="mt-1 text-xs text-gray-500">
-                      {formatDate(sale.sale_date)}
+                      {formatDate(sale.sale_date)} • ID: {sale.id.slice(0, 8)}
                     </p>
+
+                    {sale.notes && (
+                      <p className="mt-1 text-xs text-gray-400">
+                        Obs: {sale.notes}
+                      </p>
+                    )}
                   </div>
 
-                  <span className="rounded-full bg-green-50 px-3 py-1 text-xs font-medium text-green-700">
-                    {sale.status === 'completed'
-                      ? 'Concluída'
-                      : sale.status}
+                  <span
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${
+                      sale.status === 'paid'
+                        ? 'bg-green-50 text-green-700'
+                        : sale.status === 'pending'
+                          ? 'bg-orange-50 text-orange-700'
+                          : sale.status === 'partial'
+                            ? 'bg-blue-50 text-blue-700'
+                            : 'bg-gray-100 text-gray-600'
+                    }`}
+                  >
+                    {sale.status === 'paid'
+                      ? 'Paga'
+                      : sale.status === 'pending'
+                        ? 'Pendente'
+                        : sale.status === 'partial'
+                          ? 'Parcial'
+                          : sale.status === 'cancelled'
+                            ? 'Cancelada'
+                            : sale.status}
                   </span>
                 </div>
 
                 <div className="mt-4 flex items-end justify-between">
                   <div className="text-sm text-gray-500">
-                    <p>
-                      Subtotal:{' '}
-                      {formatCurrency(
-                        sale.subtotal,
-                      )}
-                    </p>
+                    <p>Subtotal: {formatCurrency(sale.subtotal)}</p>
 
                     {sale.discount > 0 && (
-                      <p>
-                        Desconto:{' '}
-                        {formatCurrency(
-                          sale.discount,
-                        )}
+                      <p>Desconto: {formatCurrency(sale.discount)}</p>
+                    )}
+
+                    {isPending && (
+                      <p className="mt-1 font-medium text-orange-600">
+                        Pendente: {formatCurrency(pendingAmount)}
                       </p>
                     )}
                   </div>
@@ -763,11 +419,172 @@ function Sales() {
                     {formatCurrency(sale.total)}
                   </p>
                 </div>
+
+                {/* Pagamentos realizados */}
+                {sale.payments.length > 0 && (
+                  <div className="mt-3 border-t border-gray-100 pt-3">
+                    <p className="text-xs font-medium text-gray-500">
+                      Pagamentos ({sale.payments.length})
+                    </p>
+                    <div className="mt-2 space-y-1">
+                      {sale.payments.map((payment) => (
+                        <div
+                          key={payment.id}
+                          className="flex justify-between text-xs text-gray-600"
+                        >
+                          <span>
+                            {formatDate(payment.payment_date)} •{' '}
+                            {paymentMethods.find(m => m.value === payment.method)?.label || payment.method}
+                          </span>
+                          <span className="font-medium">
+                            {formatCurrency(payment.amount)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Botão para registrar pagamento */}
+                {isPending && (
+                  <button
+                    type="button"
+                    onClick={() => handleOpenPaymentModal(sale)}
+                    className="mt-4 w-full rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                  >
+                    💰 Registrar pagamento
+                  </button>
+                )}
               </div>
-            ))}
+            )
+          })}
+        </div>
+      )}
+
+      {/* Modal de pagamento */}
+      {showPaymentModal && selectedSale && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="max-h-[95vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:max-w-lg sm:rounded-3xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
+                  Registrar pagamento
+                </h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {selectedSale.customer?.name ?? 'Consumidor não cadastrado'}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleClosePaymentModal}
+                disabled={savingPayment}
+                className="rounded-xl p-2 text-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+                aria-label="Fechar"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterPayment} className="mt-6 space-y-4">
+              <div className="rounded-xl bg-gray-50 p-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Total da venda</span>
+                  <span className="font-semibold text-gray-900">
+                    {formatCurrency(selectedSale.total)}
+                  </span>
+                </div>
+
+                <div className="mt-2 flex justify-between text-sm">
+                  <span className="text-gray-500">Já pago</span>
+                  <span className="font-semibold text-green-600">
+                    {formatCurrency(
+                      selectedSale.payments.reduce((sum, p) => sum + p.amount, 0)
+                    )}
+                  </span>
+                </div>
+
+                <div className="mt-2 flex justify-between border-t border-gray-200 pt-2 text-sm">
+                  <span className="font-medium text-gray-700">Pendente</span>
+                  <span className="font-bold text-orange-600">
+                    {formatCurrency(getPendingAmount(selectedSale))}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="payment-amount"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Valor do pagamento *
+                </label>
+
+                <div className="flex items-center rounded-xl border border-gray-300 bg-white">
+                  <span className="pl-4 text-sm text-gray-400">R$</span>
+                  <input
+                    id="payment-amount"
+                    type="text"
+                    inputMode="decimal"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    required
+                    className="w-full bg-transparent px-3 py-3 text-right text-lg outline-none"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="payment-method-modal"
+                  className="mb-1 block text-sm font-medium text-gray-700"
+                >
+                  Forma de pagamento
+                </label>
+
+                <select
+                  id="payment-method-modal"
+                  value={paymentMethodModal}
+                  onChange={(e) => setPaymentMethodModal(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                >
+                  {paymentMethods.map((method) => (
+                    <option key={method.value} value={method.value}>
+                      {method.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {error && (
+                <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={handleClosePaymentModal}
+                  disabled={savingPayment}
+                  className="flex-1 rounded-xl border border-gray-300 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={savingPayment}
+                  className="flex-1 rounded-xl bg-blue-600 px-4 py-3 font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingPayment ? 'Registrando...' : 'Confirmar'}
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-      </section>
+        </div>
+      )}
     </div>
   )
 }
