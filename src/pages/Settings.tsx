@@ -1,23 +1,21 @@
 // src/pages/Settings.tsx
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useToast } from '../components/ToastContainer'
+import { useToast } from '../hooks/useToast'
 
 function Settings() {
   const { showToast } = useToast()
 
-  // Estado do perfil
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
   const [monthlyGoal, setMonthlyGoal] = useState('')
 
-  // Estado de senha
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
 
-  // Loading states
   const [loading, setLoading] = useState(true)
   const [savingProfile, setSavingProfile] = useState(false)
   const [savingPassword, setSavingPassword] = useState(false)
@@ -145,7 +143,7 @@ function Settings() {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-pink-100 border-t-pink-600" />
           <p className="mt-3 text-sm text-gray-500">Carregando configurações...</p>
         </div>
       </div>
@@ -154,7 +152,6 @@ function Settings() {
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
       <section>
         <p className="text-sm text-gray-500">Configurações</p>
         <h2 className="mt-1 text-2xl font-bold text-gray-900">
@@ -182,7 +179,7 @@ function Settings() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               required
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
               placeholder="Seu nome"
             />
           </div>
@@ -212,7 +209,7 @@ function Settings() {
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
               placeholder="(00) 00000-0000"
             />
           </div>
@@ -221,7 +218,7 @@ function Settings() {
             <label htmlFor="goal" className="mb-1 block text-sm font-medium text-gray-700">
               Meta mensal de vendas
             </label>
-            <div className="flex items-center rounded-xl border border-gray-300 bg-white">
+            <div className="flex items-center rounded-xl border border-gray-300 bg-white focus-within:border-pink-600 focus-within:ring-2 focus-within:ring-pink-100">
               <span className="pl-4 text-sm text-gray-400">R$</span>
               <input
                 id="goal"
@@ -238,7 +235,7 @@ function Settings() {
           <button
             type="submit"
             disabled={savingProfile}
-            className="w-full rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+            className="w-full rounded-xl bg-pink-600 px-4 py-3 font-semibold text-white hover:bg-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {savingProfile ? 'Salvando...' : 'Salvar alterações'}
           </button>
@@ -262,7 +259,7 @@ function Settings() {
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               required
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
               placeholder="••••••••"
             />
           </div>
@@ -278,7 +275,7 @@ function Settings() {
               onChange={(e) => setNewPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
               placeholder="Mínimo 6 caracteres"
             />
           </div>
@@ -294,7 +291,7 @@ function Settings() {
               onChange={(e) => setConfirmPassword(e.target.value)}
               required
               minLength={6}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
               placeholder="••••••••"
             />
           </div>
@@ -307,6 +304,29 @@ function Settings() {
             {savingPassword ? 'Alterando...' : 'Alterar senha'}
           </button>
         </form>
+      </section>
+
+      {/* BACKUP */}
+      <section className="rounded-2xl bg-white p-5 shadow-sm">
+        <div className="flex items-start gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-pink-50 text-2xl">
+            💾
+          </div>
+          <div className="flex-1">
+            <h3 className="font-semibold text-gray-900">
+              Backup e Restauração
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Exporte ou importe seus dados para proteger suas informações.
+            </p>
+            <Link
+              to="/backup"
+              className="mt-4 inline-block rounded-xl bg-pink-50 px-4 py-3 text-sm font-semibold text-pink-700 hover:bg-pink-100"
+            >
+              Acessar backup
+            </Link>
+          </div>
+        </div>
       </section>
     </div>
   )

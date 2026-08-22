@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import NewSale from '../components/NewSale'
-import { useToast } from '../components/ToastContainer'
+import { useToast } from '../hooks/useToast'  // ← Corrigido
 
 function Dashboard() {
   const { showToast } = useToast()
@@ -242,10 +242,10 @@ function Dashboard() {
           to="/configuracoes"
           className="group mt-1 inline-flex items-center gap-2"
         >
-          <h2 className="text-2xl font-bold text-gray-900 transition group-hover:text-green-600">
+          <h2 className="text-2xl font-bold text-gray-900 transition group-hover:text-pink-600">
             Olá, {userName || 'Revendedora'}! 👋
           </h2>
-          <span className="rounded-lg bg-gray-100 p-1.5 text-sm text-gray-400 opacity-0 transition group-hover:opacity-100">
+          <span className="rounded-lg bg-pink-50 p-1.5 text-sm text-pink-400 opacity-0 transition group-hover:opacity-100">
             ⚙️
           </span>
         </Link>
@@ -257,15 +257,15 @@ function Dashboard() {
 
       {loading ? (
         <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-pink-100 border-t-pink-600" />
           <p className="mt-3 text-sm text-gray-500">Carregando dados...</p>
         </div>
       ) : (
         <>
-          <section className="rounded-2xl bg-green-600 p-5 text-white shadow-sm">
+          <section className="rounded-2xl bg-pink-600 p-5 text-white shadow-sm">
             <div className="flex items-start justify-between">
               <div>
-                <p className="text-sm text-green-100">
+                <p className="text-sm text-pink-100">
                   Vendas pagas {isCurrentMonth ? 'do mês' : `em ${monthName}`}
                 </p>
                 <p className="mt-2 text-3xl font-bold">
@@ -327,7 +327,7 @@ function Dashboard() {
                             }}
                             className={`flex w-full items-center justify-between px-4 py-3 text-left text-sm transition hover:bg-gray-50 ${
                               selectedMonth === monthOption.value
-                                ? 'bg-green-50 font-semibold text-green-700'
+                                ? 'bg-pink-50 font-semibold text-pink-700'
                                 : 'text-gray-700'
                             }`}
                           >
@@ -336,14 +336,14 @@ function Dashboard() {
                             </span>
 
                             {monthOption.isCurrent && (
-                              <span className="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-700">
+                              <span className="rounded-full bg-pink-100 px-2 py-1 text-xs font-medium text-pink-700">
                                 Atual
                               </span>
                             )}
 
                             {selectedMonth === monthOption.value && (
                               <svg
-                                className="h-5 w-5 text-green-600"
+                                className="h-5 w-5 text-pink-600"
                                 fill="none"
                                 viewBox="0 0 24 24"
                                 stroke="currentColor"
@@ -370,7 +370,7 @@ function Dashboard() {
                             value={selectedMonth}
                             onChange={handleMonthChange}
                             max={`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`}
-                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+                            className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm text-gray-700 outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
                           />
                         </label>
                       </div>
@@ -439,7 +439,7 @@ function Dashboard() {
               <p className="text-sm text-gray-500">
                 {isCurrentMonth ? 'Lucro do mês' : `Lucro em ${monthName}`}
               </p>
-              <p className="mt-2 text-xl font-bold text-green-600">
+              <p className="mt-2 text-xl font-bold text-pink-600">
                 {monthlySales.toLocaleString('pt-BR', {
                   style: 'currency',
                   currency: 'BRL',
@@ -464,7 +464,7 @@ function Dashboard() {
             </section>
           )}
 
-          <section className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
+          <section className="rounded-2xl border border-dashed border-pink-200 bg-white p-8 text-center">
             <div className="text-4xl">📊</div>
 
             <h3 className="mt-3 font-semibold text-gray-900">
@@ -487,7 +487,7 @@ function Dashboard() {
             </p>
 
             {monthlySales > 0 && goalPercentage >= 100 && (
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-medium text-green-700">
+              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-pink-100 px-4 py-2 text-sm font-medium text-pink-700">
                 🎉 Meta atingida!
               </div>
             )}
@@ -502,7 +502,7 @@ function Dashboard() {
               <button
                 type="button"
                 onClick={handleOpenGoalModal}
-                className="mt-4 inline-flex items-center gap-2 rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                className="mt-4 inline-flex items-center gap-2 rounded-full bg-pink-50 px-4 py-2 text-sm font-medium text-pink-700 hover:bg-pink-100"
               >
                 🎯 Definir meta mensal
               </button>
@@ -546,7 +546,7 @@ function Dashboard() {
                   Valor da meta *
                 </label>
 
-                <div className="flex items-center rounded-xl border border-gray-300 bg-white">
+                <div className="flex items-center rounded-xl border border-gray-300 bg-white focus-within:border-pink-500 focus-within:ring-2 focus-within:ring-pink-100">
                   <span className="pl-4 text-lg text-gray-400">R$</span>
                   <input
                     id="goal"
@@ -576,7 +576,7 @@ function Dashboard() {
                       key={value}
                       type="button"
                       onClick={() => setGoalInput(value.toString())}
-                      className="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                      className="rounded-full bg-pink-50 px-4 py-2 text-sm font-medium text-pink-700 hover:bg-pink-100"
                     >
                       {value.toLocaleString('pt-BR', {
                         style: 'currency',
@@ -612,7 +612,7 @@ function Dashboard() {
                 <button
                   type="submit"
                   disabled={savingGoal}
-                  className="flex-1 rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-pink-600 px-4 py-3 font-semibold text-white hover:bg-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {savingGoal ? 'Salvando...' : 'Salvar meta'}
                 </button>

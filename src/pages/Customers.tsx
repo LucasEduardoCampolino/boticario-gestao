@@ -1,5 +1,6 @@
+// src/pages/Customers.tsx
 import { useEffect, useMemo, useState } from 'react'
-
+import { Link } from 'react-router-dom'
 import {
   createCustomer,
   deleteCustomer,
@@ -7,6 +8,7 @@ import {
   updateCustomer,
   type Customer,
 } from '../services/customers'
+import { useToast } from '../hooks/useToast'
 
 interface CustomerForm {
   name: string
@@ -25,6 +27,7 @@ const initialForm: CustomerForm = {
 }
 
 function Customers() {
+  const { showToast } = useToast()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -181,6 +184,12 @@ function Customers() {
       setShowForm(false)
       setEditingCustomer(null)
       setForm(initialForm)
+      showToast(
+        editingCustomer
+          ? 'Cliente atualizado com sucesso!'
+          : 'Cliente cadastrado com sucesso!',
+        'success',
+      )
     } catch (err) {
       console.error(err)
 
@@ -209,6 +218,7 @@ function Customers() {
 
       setDeletingCustomer(null)
       setError('')
+      showToast('Cliente excluído com sucesso!', 'success')
     } catch (err) {
       console.error(err)
 
@@ -244,7 +254,7 @@ function Customers() {
         <button
           type="button"
           onClick={() => handleOpenForm()}
-          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-green-600 text-2xl text-white shadow-sm transition hover:bg-green-700"
+          className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-pink-600 text-2xl text-white shadow-sm transition hover:bg-pink-700"
           aria-label="Novo cliente"
         >
           +
@@ -260,7 +270,7 @@ function Customers() {
             setSearch(event.target.value)
           }
           placeholder="🔎  Buscar cliente..."
-          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-green-600 focus:ring-2 focus:ring-green-100"
+          className="w-full rounded-xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
         />
       </section>
 
@@ -275,7 +285,7 @@ function Customers() {
       <section className="space-y-3">
         {loading ? (
           <div className="rounded-2xl bg-white p-8 text-center shadow-sm">
-            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
+            <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-pink-100 border-t-pink-600" />
 
             <p className="mt-3 text-sm text-gray-500">
               Carregando clientes...
@@ -301,7 +311,7 @@ function Customers() {
               <button
                 type="button"
                 onClick={() => handleOpenForm()}
-                className="mt-5 rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700"
+                className="mt-5 rounded-xl bg-pink-600 px-5 py-3 text-sm font-semibold text-white hover:bg-pink-700"
               >
                 Cadastrar cliente
               </button>
@@ -315,9 +325,13 @@ function Customers() {
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <h3 className="font-semibold text-gray-900">
+                  {/* Nome clicável */}
+                  <Link
+                    to={`/clientes/${customer.id}`}
+                    className="font-semibold text-gray-900 transition hover:text-pink-600"
+                  >
                     {customer.name}
-                  </h3>
+                  </Link>
 
                   {customer.phone && (
                     <p className="mt-1 text-sm text-gray-500">
@@ -360,6 +374,14 @@ function Customers() {
                   </button>
                 </div>
               </div>
+
+              {/* Link para ver detalhes */}
+              <Link
+                to={`/clientes/${customer.id}`}
+                className="mt-3 block w-full rounded-xl bg-pink-50 px-4 py-2 text-center text-sm font-medium text-pink-700 hover:bg-pink-100"
+              >
+                Ver histórico de compras
+              </Link>
             </div>
           ))
         )}
@@ -420,7 +442,7 @@ function Customers() {
                   }
                   required
                   autoFocus
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
                   placeholder="Nome completo"
                 />
               </div>
@@ -444,7 +466,7 @@ function Customers() {
                       event.target.value,
                     )
                   }
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
                   placeholder="(00) 00000-0000"
                 />
               </div>
@@ -468,7 +490,7 @@ function Customers() {
                       event.target.value,
                     )
                   }
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
                   placeholder="cliente@email.com"
                 />
               </div>
@@ -492,7 +514,7 @@ function Customers() {
                     )
                   }
                   rows={2}
-                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
                   placeholder="Endereço do cliente"
                 />
               </div>
@@ -516,7 +538,7 @@ function Customers() {
                     )
                   }
                   rows={3}
-                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
                   placeholder="Preferências, informações importantes..."
                 />
               </div>
@@ -542,7 +564,7 @@ function Customers() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-pink-600 px-4 py-3 font-semibold text-white hover:bg-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {saving
                     ? 'Salvando...'

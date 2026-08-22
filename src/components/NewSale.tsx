@@ -1,6 +1,7 @@
 // src/components/NewSale.tsx
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { useToast } from '../hooks/useToast'
 
 type Customer = {
   id: string
@@ -54,6 +55,7 @@ interface NewSaleProps {
 }
 
 function NewSale({ onSuccess, onCancel }: NewSaleProps) {
+  const { showToast } = useToast()
   const [customers, setCustomers] = useState<Customer[]>([])
   const [products, setProducts] = useState<Product[]>([])
 
@@ -68,7 +70,6 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
-  const [success, setSuccess] = useState('')
 
   useEffect(() => {
     loadData()
@@ -205,7 +206,6 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
     event.preventDefault()
 
     setError('')
-    setSuccess('')
 
     if (items.length === 0) {
       setError('Adicione pelo menos um produto à venda.')
@@ -240,13 +240,13 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
         throw new Error(`${rpcError.message} | Código: ${rpcError.code ?? 'N/A'}`)
       }
 
-      setSuccess(
+      showToast(
         paymentType === 'now'
           ? `Venda registrada com sucesso! Nº ${String(data).slice(0, 8)}`
           : `Venda pendente registrada! Nº ${String(data).slice(0, 8)}`,
+        'success',
       )
 
-      // Limpar formulário
       setCustomerId('')
       setItems([])
       setDiscount('')
@@ -254,14 +254,14 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
       setPaymentMethod('pix')
       setNotes('')
 
-      // Notificar sucesso
       if (onSuccess) {
         setTimeout(() => {
           onSuccess()
-        }, 1500)
+        }, 1000)
       }
     } catch (err) {
       setError(getErrorMessage(err))
+      showToast('Não foi possível registrar a venda.', 'error')
     } finally {
       setSaving(false)
     }
@@ -271,7 +271,7 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
     return (
       <div className="flex min-h-[40vh] items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-pink-100 border-t-pink-600" />
           <p className="mt-3 text-sm text-gray-500">Carregando...</p>
         </div>
       </div>
@@ -280,7 +280,6 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-900">
@@ -303,37 +302,25 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
         )}
       </div>
 
-      {/* Mensagens */}
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
       )}
 
-      {success && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm text-green-700">
-          {success}
-        </div>
-      )}
-
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Cliente */}
         <div>
-          <label
-            htmlFor="customer"
-            className="mb-2 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="customer" className="mb-2 block text-sm font-medium text-gray-700">
             Cliente
           </label>
-
           <select
             id="customer"
             value={customerId}
             onChange={(event) => setCustomerId(event.target.value)}
-            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
           >
             <option value="">Consumidor não cadastrado</option>
-
             {customers.map((customer) => (
               <option key={customer.id} value={customer.id}>
                 {customer.name}
@@ -344,23 +331,16 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
 
         {/* Adicionar produto */}
         <div>
-          <label
-            htmlFor="product"
-            className="mb-2 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="product" className="mb-2 block text-sm font-medium text-gray-700">
             Adicionar produto
           </label>
-
           <select
             id="product"
             value=""
-            onChange={(event) => {
-              addProduct(event.target.value)
-            }}
-            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+            onChange={(event) => addProduct(event.target.value)}
+            className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
           >
             <option value="">Selecione um produto...</option>
-
             {products
               .filter((product) => product.stock_quantity > 0)
               .map((product) => (
@@ -377,29 +357,18 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
             <h3 className="text-sm font-semibold text-gray-700">
               Produtos da venda
             </h3>
-
             {saleDetails.map((item) => (
-              <div
-                key={item.product_id}
-                className="rounded-xl border border-gray-200 p-4"
-              >
+              <div key={item.product_id} className="rounded-xl border border-gray-200 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-medium text-gray-900">
-                      {item.product.name}
-                    </p>
-
+                    <p className="font-medium text-gray-900">{item.product.name}</p>
                     {item.product.code && (
-                      <p className="mt-1 text-xs text-gray-500">
-                        Código: {item.product.code}
-                      </p>
+                      <p className="mt-1 text-xs text-gray-500">Código: {item.product.code}</p>
                     )}
-
                     <p className="mt-1 text-sm text-gray-500">
                       {formatCurrency(Number(item.product.sale_price))} cada
                     </p>
                   </div>
-
                   <button
                     type="button"
                     onClick={() => removeProduct(item.product_id)}
@@ -408,7 +377,6 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
                     Remover
                   </button>
                 </div>
-
                 <div className="mt-4 flex items-center justify-between gap-4">
                   <div className="flex items-center rounded-xl border border-gray-300">
                     <button
@@ -419,11 +387,7 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
                     >
                       −
                     </button>
-
-                    <span className="min-w-10 text-center font-semibold">
-                      {item.quantity}
-                    </span>
-
+                    <span className="min-w-10 text-center font-semibold">{item.quantity}</span>
                     <button
                       type="button"
                       onClick={() => updateQuantity(item.product_id, item.quantity + 1)}
@@ -433,10 +397,7 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
                       +
                     </button>
                   </div>
-
-                  <p className="font-bold text-gray-900">
-                    {formatCurrency(item.total)}
-                  </p>
+                  <p className="font-bold text-gray-900">{formatCurrency(item.total)}</p>
                 </div>
               </div>
             ))}
@@ -449,12 +410,8 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
             <span>Subtotal</span>
             <span>{formatCurrency(subtotal)}</span>
           </div>
-
           <div className="mt-3 flex items-center justify-between gap-4">
-            <label htmlFor="discount" className="text-sm text-gray-600">
-              Desconto
-            </label>
-
+            <label htmlFor="discount" className="text-sm text-gray-600">Desconto</label>
             <div className="flex w-32 items-center rounded-lg border border-gray-300 bg-white">
               <span className="pl-3 text-sm text-gray-400">R$</span>
               <input
@@ -468,28 +425,22 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
               />
             </div>
           </div>
-
           <div className="mt-4 flex items-center justify-between border-t border-gray-200 pt-4">
             <span className="font-bold text-gray-900">Total</span>
-            <span className="text-xl font-bold text-green-600">
-              {formatCurrency(total)}
-            </span>
+            <span className="text-xl font-bold text-pink-600">{formatCurrency(total)}</span>
           </div>
         </div>
 
         {/* Tipo de pagamento */}
         <div>
-          <label className="mb-2 block text-sm font-medium text-gray-700">
-            Pagamento
-          </label>
-
+          <label className="mb-2 block text-sm font-medium text-gray-700">Pagamento</label>
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
               onClick={() => setPaymentType('now')}
               className={`rounded-xl border-2 px-4 py-4 text-center transition ${
                 paymentType === 'now'
-                  ? 'border-green-500 bg-green-50'
+                  ? 'border-pink-500 bg-pink-50'
                   : 'border-gray-200 bg-white hover:bg-gray-50'
               }`}
             >
@@ -497,7 +448,6 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
               <div className="mt-1 font-semibold text-gray-900">Pagar agora</div>
               <div className="mt-1 text-xs text-gray-500">Receber no ato</div>
             </button>
-
             <button
               type="button"
               onClick={() => setPaymentType('later')}
@@ -517,18 +467,14 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
         {/* Método de pagamento */}
         {paymentType === 'now' && (
           <div>
-            <label
-              htmlFor="payment"
-              className="mb-2 block text-sm font-medium text-gray-700"
-            >
+            <label htmlFor="payment" className="mb-2 block text-sm font-medium text-gray-700">
               Forma de pagamento
             </label>
-
             <select
               id="payment"
               value={paymentMethod}
               onChange={(event) => setPaymentMethod(event.target.value)}
-              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+              className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
             >
               {paymentMethods.map((method) => (
                 <option key={method.value} value={method.value}>
@@ -541,30 +487,26 @@ function NewSale({ onSuccess, onCancel }: NewSaleProps) {
 
         {/* Observação */}
         <div>
-          <label
-            htmlFor="notes"
-            className="mb-2 block text-sm font-medium text-gray-700"
-          >
+          <label htmlFor="notes" className="mb-2 block text-sm font-medium text-gray-700">
             Observação
           </label>
-
           <textarea
             id="notes"
             value={notes}
             onChange={(event) => setNotes(event.target.value)}
             rows={3}
             placeholder="Observações da venda..."
-            className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-green-500 focus:ring-2 focus:ring-green-100"
+            className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 text-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
           />
         </div>
 
-        {/* Confirmar */}
+        {/* Botão confirmar */}
         <button
           type="submit"
           disabled={saving || items.length === 0 || total <= 0}
           className={`w-full rounded-xl px-5 py-4 font-semibold text-white transition disabled:cursor-not-allowed disabled:bg-gray-300 ${
             paymentType === 'now'
-              ? 'bg-green-600 hover:bg-green-700'
+              ? 'bg-pink-600 hover:bg-pink-700'
               : 'bg-orange-600 hover:bg-orange-700'
           }`}
         >

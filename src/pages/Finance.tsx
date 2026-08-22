@@ -1,7 +1,7 @@
 // src/pages/Finance.tsx
 import { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import { useToast } from '../components/ToastContainer'
+import { useToast } from '../hooks/useToast'
 
 type Sale = {
   id: string

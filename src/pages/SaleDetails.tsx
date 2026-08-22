@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useToast } from '../components/ToastContainer'
+import { useToast } from '../hooks/useToast'
 
 type SaleItem = {
   id: string
@@ -215,7 +215,6 @@ function SaleDetails() {
     )
   }
 
-  const isCancelled = sale.status === 'cancelled'
   const canCancel = sale.status !== 'cancelled'
 
   return (

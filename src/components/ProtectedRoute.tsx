@@ -15,7 +15,7 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
     checkAuth()
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      (_event, session) => {
         setAuthenticated(!!session)
         setLoading(false)
       },
@@ -42,9 +42,9 @@ function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
+      <div className="flex min-h-screen items-center justify-center bg-pink-50">
         <div className="text-center">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-pink-100 border-t-pink-600" />
           <p className="mt-3 text-sm text-gray-500">Carregando...</p>
         </div>
       </div>

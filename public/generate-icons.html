@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gerar Ícones SiEncante</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      background: linear-gradient(135deg, #fdf2f8 0%, #fce7f3 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 24px;
+      padding: 40px;
+      max-width: 600px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(236, 72, 153, 0.2);
+      text-align: center;
+    }
+
+    h1 {
+      color: #ec4899;
+      font-size: 2rem;
+      margin-bottom: 8px;
+    }
+
+    .subtitle {
+      color: #6b7280;
+      margin-bottom: 32px;
+      font-size: 1rem;
+    }
+
+    .preview {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+      padding: 20px;
+      background: #fdf2f8;
+      border-radius: 16px;
+    }
+
+    .icon-preview {
+      text-align: center;
+    }
+
+    .icon-preview img {
+      width: 80px;
+      height: 80px;
+      border-radius: 16px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      margin-bottom: 8px;
+    }
+
+    .icon-preview p {
+      font-size: 0.75rem;
+      color: #6b7280;
+    }
+
+    button {
+      background: #ec4899;
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin: 8px;
+    }
+
+    button:hover {
+      background: #db2777;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 20px rgba(236, 72, 153, 0.3);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .instructions {
+      margin-top: 24px;
+      padding: 20px;
+      background: #fef3c7;
+      border-radius: 12px;
+      text-align: left;
+    }
+
+    .instructions h3 {
+      color: #92400e;
+      margin-bottom: 12px;
+    }
+
+    .instructions ol {
+      padding-left: 20px;
+      color: #78350f;
+    }
+
+    .instructions li {
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎨 Gerar Ícones SiEncante</h1>
+    <p class="subtitle">Clique no botão para gerar todos os ícones do PWA</p>
+
+    <div class="preview" id="preview"></div>
+
+    <button onclick="generateAllIcons()">📦 Gerar Todos os Ícones</button>
+    <button onclick="downloadZip()" id="zipBtn" style="display: none;">📥 Baixar Todos (ZIP)</button>
+
+    <div class="instructions">
+      <h3>📋 Instruções:</h3>
+      <ol>
+        <li>Clique em "Gerar Todos os Ícones"</li>
+        <li>Os ícones serão baixados automaticamente</li>
+        <li>Crie a pasta <code>public/icons/</code> no projeto</li>
+        <li>Mova os arquivos baixados para <code>public/icons/</code></li>
+        <li>Atualize o app e teste no celular</li>
+      </ol>
+    </div>
+  </div>
+
+  <script>
+    const generatedIcons = [];
+
+    function generateIcon(size, maskable = false) {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+
+      // Fundo rosa
+      ctx.fillStyle = '#ec4899';
+      ctx.fillRect(0, 0, size, size);
+
+      // Círculo branco
+      const centerX = size / 2;
+      const centerY = size / 2;
+      const radius = maskable ? size * 0.4 : size * 0.45;
+
+      // Sombra do círculo
+      ctx.beginPath();
+      ctx.arc(centerX, centerY + size * 0.02, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
+      ctx.fill();
+
+      // Círculo principal
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+      ctx.fillStyle = '#ffffff';
+      ctx.fill();
+
+      // Letra S
+      ctx.fillStyle = '#ec4899';
+      ctx.font = `bold ${size * 0.45}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('S', centerX, centerY + size * 0.02);
+
+      // Brilho decorativo
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+      gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0)');
+      gradient.addColorStop(1, 'rgba(255, 255, 255, 0.1)');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+
+      return canvas.toDataURL('image/png');
+    }
+
+    function downloadIcon(dataUrl, filename) {
+      const link = document.createElement('a');
+      link.href = dataUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      generatedIcons.push({
+        filename: filename,
+        dataUrl: dataUrl,
+      });
+    }
+
+    function generateAllIcons() {
+      const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+      const previewDiv = document.getElementById('preview');
+      previewDiv.innerHTML = '';
+
+      sizes.forEach(size => {
+        const dataUrl = generateIcon(size);
+        downloadIcon(dataUrl, `icon-${size}x${size}.png`);
+
+        // Adicionar preview
+        const preview = document.createElement('div');
+        preview.className = 'icon-preview';
+        preview.innerHTML = `
+          <img src="${dataUrl}" alt="${size}x${size}">
+          <p>${size}x${size}</p>
+        `;
+        previewDiv.appendChild(preview);
+      });
+
+      // Ícone maskable
+      const maskableDataUrl = generateIcon(512, true);
+      downloadIcon(maskableDataUrl, 'maskable-icon-512x512.png');
+
+      const maskablePreview = document.createElement('div');
+      maskablePreview.className = 'icon-preview';
+      maskablePreview.innerHTML = `
+        <img src="${maskableDataUrl}" alt="maskable">
+        <p>maskable-512x512</p>
+      `;
+      previewDiv.appendChild(maskablePreview);
+
+      // Mostrar botão de ZIP
+      document.getElementById('zipBtn').style.display = 'inline-block';
+    }
+
+    async function downloadZip() {
+      // Criar ZIP manualmente (simples)
+      const zipContent = generatedIcons.map(icon => {
+        return {
+          name: icon.filename,
+          data: icon.dataUrl.split(',')[1],
+        };
+      });
+
+      // Como não temos biblioteca ZIP, vamos baixar um arquivo HTML com instruções
+      const instructions = `
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Ícones SiEncante</title>
+</head>
+<body>
+  <h1>Ícones SiEncante</h1>
+  <p>Cole cada ícone abaixo em public/icons/</p>
+  ${generatedIcons.map(icon => `
+    <h3>${icon.filename}</h3>
+    <img src="${icon.dataUrl}" width="100"><br>
+    <a href="${icon.dataUrl}" download="${icon.filename}">Baixar ${icon.filename}</a>
+    <hr>
+  `).join('')}
+</body>
+</html>`;
+
+      const blob = new Blob([instructions], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'icones-siencante.html';
+      link.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
