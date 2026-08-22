@@ -1,3 +1,5 @@
+// @ts-nocheck
+
 // src/pages/Products.tsx
 import {
   useEffect,

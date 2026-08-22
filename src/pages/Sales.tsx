@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
-import { useToast } from '../components/ToastContainer'
+import { useToast } from '../hooks/useToast'
 
 type Sale = {
   id: string
