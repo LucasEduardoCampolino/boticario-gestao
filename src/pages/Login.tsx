@@ -1,9 +1,11 @@
 // src/pages/Login.tsx
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../hooks/useToast'
 
 function Login() {
+  const navigate = useNavigate()
   const { showToast } = useToast()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -40,13 +42,17 @@ function Login() {
         )
         showToast('Cadastro realizado com sucesso!', 'success')
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         })
 
         if (error) throw error
-        showToast('Login realizado com sucesso!', 'success')
+
+        if (data.session) {
+          showToast('Login realizado com sucesso!', 'success')
+          navigate('/', { replace: true })
+        }
       }
     } catch (err) {
       if (err instanceof Error) {

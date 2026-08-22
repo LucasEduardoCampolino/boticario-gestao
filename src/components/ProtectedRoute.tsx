@@ -1,6 +1,6 @@
 // src/components/ProtectedRoute.tsx
 import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useLocation } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 
 interface ProtectedRouteProps {
@@ -10,35 +10,48 @@ interface ProtectedRouteProps {
 function ProtectedRoute({ children }: ProtectedRouteProps) {
   const [loading, setLoading] = useState(true)
   const [authenticated, setAuthenticated] = useState(false)
+  const location = useLocation()
 
   useEffect(() => {
+    let mounted = true
+
+    async function checkAuth() {
+      try {
+        const {
+          data: { session },
+        } = await supabase.auth.getSession()
+
+        if (mounted) {
+          setAuthenticated(!!session)
+        }
+      } catch (err) {
+        console.error('Erro ao verificar autenticação:', err)
+        if (mounted) {
+          setAuthenticated(false)
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
+      }
+    }
+
     checkAuth()
 
     const { data: authListener } = supabase.auth.onAuthStateChange(
       (_event, session) => {
-        setAuthenticated(!!session)
-        setLoading(false)
+        if (mounted) {
+          setAuthenticated(!!session)
+          setLoading(false)
+        }
       },
     )
 
     return () => {
+      mounted = false
       authListener.subscription.unsubscribe()
     }
-  }, [])
-
-  async function checkAuth() {
-    try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession()
-      setAuthenticated(!!session)
-    } catch (err) {
-      console.error('Erro ao verificar autenticação:', err)
-      setAuthenticated(false)
-    } finally {
-      setLoading(false)
-    }
-  }
+  }, [location.pathname])
 
   if (loading) {
     return (
