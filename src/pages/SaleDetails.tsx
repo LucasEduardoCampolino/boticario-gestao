@@ -199,52 +199,69 @@ function SaleDetails() {
   }
 
   async function handleRegisterPayment(e: React.FormEvent) {
-    e.preventDefault()
+  e.preventDefault()
 
-    if (!sale) return
+  if (!sale) return
 
-    const amount = Number(paymentAmount.replace(',', '.'))
+  const amount = Number(paymentAmount.replace(',', '.'))
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      showToast('Informe um valor válido.', 'error')
-      return
+  if (!Number.isFinite(amount) || amount <= 0) {
+    showToast('Informe um valor válido.', 'error')
+    return
+  }
+
+  const remainingAmount = getPendingAmount()
+
+  if (amount > remainingAmount) {
+    showToast(`O valor máximo é ${formatCurrency(remainingAmount)}.`, 'error')
+    return
+  }
+
+  try {
+    setSavingPayment(true)
+
+    // Obter o usuário autenticado
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+
+    if (!user) throw new Error('Usuário não autenticado')
+
+    // Inserir pagamento com user_id
+    const { error: paymentError } = await supabase
+      .from('payments')
+      .insert({
+        user_id: user.id, // ← Adicionar user_id
+        sale_id: sale.id,
+        amount,
+        method: paymentMethod,
+        payment_date: new Date().toISOString().split('T')[0],
+        notes: 'Pagamento registrado',
+      })
+
+    if (paymentError) {
+      console.error('Erro ao inserir pagamento:', paymentError)
+      throw paymentError
     }
 
-    const remainingAmount = getPendingAmount()
+    // Verificar se o pagamento total foi atingido
+    const newPaidAmount = getPaidAmount() + amount
+    const isFullyPaid = newPaidAmount >= sale.total
 
-    if (amount > remainingAmount) {
-      showToast(`O valor máximo é ${formatCurrency(remainingAmount)}.`, 'error')
-      return
+    // Atualizar status da venda
+    const { error: updateError } = await supabase
+      .from('sales')
+      .update({ status: isFullyPaid ? 'paid' : 'partial' })
+      .eq('id', sale.id)
+
+    if (updateError) {
+      console.error('Erro ao atualizar status:', updateError)
+      throw updateError
     }
 
-    try {
-      setSavingPayment(true)
-
-      const { error: paymentError } = await supabase
-        .from('payments')
-        .insert({
-          sale_id: sale.id,
-          amount,
-          method: paymentMethod,
-          payment_date: new Date().toISOString().split('T')[0],
-          notes: 'Pagamento registrado',
-        })
-
-      if (paymentError) throw paymentError
-
-      const newPaidAmount = getPaidAmount() + amount
-      const isFullyPaid = newPaidAmount >= sale.total
-
-      const { error: updateError } = await supabase
-        .from('sales')
-        .update({ status: isFullyPaid ? 'paid' : 'partial' })
-        .eq('id', sale.id)
-
-      if (updateError) throw updateError
-
-      setShowPaymentModal(false)
-      showToast('Pagamento registrado com sucesso!', 'success')
-      await loadSale()
+    setShowPaymentModal(false)
+    showToast('Pagamento registrado com sucesso!', 'success')
+    await loadSale()
     } catch (err) {
       console.error('Erro ao registrar pagamento:', err)
       showToast('Não foi possível registrar o pagamento.', 'error')
