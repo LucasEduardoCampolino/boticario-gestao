@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import NewSale from '../components/NewSale'
-import { useToast } from '../hooks/useToast'  // ← Corrigido
+import { useToast } from '../hooks/useToast'
 
 function Dashboard() {
   const { showToast } = useToast()
@@ -13,6 +13,8 @@ function Dashboard() {
   const [monthlyGoal, setMonthlyGoal] = useState(0)
   const [monthlySales, setMonthlySales] = useState(0)
   const [pendingAmount, setPendingAmount] = useState(0)
+  const [totalExpenses, setTotalExpenses] = useState(0)
+  const [totalProfit, setTotalProfit] = useState(0)
   const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
@@ -60,42 +62,68 @@ function Dashboard() {
       const startOfMonth = `${year}-${month}-01`
       const endOfMonth = `${year}-${month}-31`
 
-      // Buscar vendas pagas do mês
-      const { data: paidSalesData, error: paidSalesError } = await supabase
+      // Buscar TODAS as vendas do mês (pagas e pendentes)
+      const { data: allSalesData, error: salesError } = await supabase
         .from('sales')
-        .select('total')
-        .eq('status', 'paid')
+        .select(`
+          id,
+          total,
+          status,
+          payments (
+            amount
+          )
+        `)
         .gte('sale_date', startOfMonth)
         .lte('sale_date', endOfMonth)
+        .neq('status', 'cancelled')
 
-      if (paidSalesError) throw paidSalesError
+      if (salesError) throw salesError
 
-      const totalPaidSales = (paidSalesData || []).reduce((sum, sale) => {
-        return sum + Number(sale.total)
-      }, 0)
+      // Calcular valores
+      let totalPaid = 0 // Total pago (vendas pagas + pagamentos parciais)
+      let totalPending = 0 // Total pendente
 
-      // Buscar vendas pendentes do mês
-      const { data: pendingSalesData, error: pendingSalesError } = await supabase
-        .from('sales')
-        .select('total, payments (amount)')
-        .in('status', ['pending', 'partial'])
-        .gte('sale_date', startOfMonth)
-        .lte('sale_date', endOfMonth)
-
-      if (pendingSalesError) throw pendingSalesError
-
-      // Calcular valor pendente real
-      const totalPending = (pendingSalesData || []).reduce((sum, sale) => {
+      ;(allSalesData || []).forEach(sale => {
         const saleTotal = Number(sale.total)
-        const paidAmount = (sale.payments || []).reduce(
-          (paymentSum, payment) => paymentSum + Number(payment.amount),
-          0,
-        )
-        return sum + Math.max(0, saleTotal - paidAmount)
-      }, 0)
+        
+        if (sale.status === 'paid') {
+          // Venda totalmente paga
+          totalPaid += saleTotal
+        } else if (sale.status === 'partial') {
+          // Venda parcialmente paga
+          const paidAmount = (sale.payments || []).reduce(
+            (sum, payment) => sum + Number(payment.amount),
+            0,
+          )
+          totalPaid += paidAmount
+          totalPending += Math.max(0, saleTotal - paidAmount)
+        } else if (sale.status === 'pending') {
+          // Venda pendente
+          totalPending += saleTotal
+        }
+      })
 
-      setMonthlySales(totalPaidSales)
+      // Buscar despesas do mês
+      const { data: expensesData, error: expensesError } = await supabase
+        .from('expenses')
+        .select('amount')
+        .gte('expense_date', startOfMonth)
+        .lte('expense_date', endOfMonth)
+
+      if (expensesError) throw expensesError
+
+      const totalExpensesValue = (expensesData || []).reduce(
+        (sum, expense) => sum + Number(expense.amount),
+        0,
+      )
+
+      // Calcular lucro: valor pago - despesas
+      const profit = totalPaid - totalExpensesValue
+
+      setMonthlySales(totalPaid)
       setPendingAmount(totalPending)
+      setTotalExpenses(totalExpensesValue)
+      setTotalProfit(profit)
     } catch (err) {
       console.error('Erro ao carregar dashboard:', err)
     } finally {
@@ -421,32 +449,40 @@ function Dashboard() {
             </div>
           </section>
 
-          <section className="grid grid-cols-2 gap-4">
-            <div className="rounded-2xl bg-white p-5 shadow-sm">
-              <p className="text-sm text-gray-500">A receber</p>
-              <p className="mt-2 text-xl font-bold text-orange-600">
+          <section className="grid grid-cols-3 gap-3">
+            <div className="rounded-2xl bg-white p-4 shadow-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                A receber
+              </p>
+              <p className="mt-2 text-lg font-bold text-orange-600">
                 {pendingAmount.toLocaleString('pt-BR', {
                   style: 'currency',
                   currency: 'BRL',
                 })}
               </p>
-              <p className="mt-1 text-xs text-gray-400">
-                Em {monthName}
-              </p>
             </div>
 
-            <div className="rounded-2xl bg-white p-5 shadow-sm">
-              <p className="text-sm text-gray-500">
-                {isCurrentMonth ? 'Lucro do mês' : `Lucro em ${monthName}`}
+            <div className="rounded-2xl bg-white p-4 shadow-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Despesas
               </p>
-              <p className="mt-2 text-xl font-bold text-pink-600">
-                {monthlySales.toLocaleString('pt-BR', {
+              <p className="mt-2 text-lg font-bold text-red-600">
+                {totalExpenses.toLocaleString('pt-BR', {
                   style: 'currency',
                   currency: 'BRL',
                 })}
               </p>
-              <p className="mt-1 text-xs text-gray-400">
-                Vendas pagas
+            </div>
+
+            <div className="rounded-2xl bg-white p-4 shadow-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
+                Lucro
+              </p>
+              <p className={`mt-2 text-lg font-bold ${totalProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {totalProfit.toLocaleString('pt-BR', {
+                  style: 'currency',
+                  currency: 'BRL',
+                })}
               </p>
             </div>
           </section>
@@ -469,11 +505,11 @@ function Dashboard() {
 
             <h3 className="mt-3 font-semibold text-gray-900">
               {monthlySales > 0
-                ? `Você vendeu ${monthlySales.toLocaleString('pt-BR', {
+                ? `Você recebeu ${monthlySales.toLocaleString('pt-BR', {
                     style: 'currency',
                     currency: 'BRL',
                   })} em ${monthName}!`
-                : `Nenhuma venda paga em ${monthName}`}
+                : `Nenhum pagamento recebido em ${monthName}`}
             </h3>
 
             <p className="mt-1 text-sm text-gray-500">
@@ -483,11 +519,11 @@ function Dashboard() {
                   : 'Veja os detalhes no menu Financeiro.'
                 : isCurrentMonth
                   ? 'Registre sua primeira venda para começar a acompanhar seus resultados.'
-                  : 'Nenhuma venda paga registrada neste mês.'}
+                  : 'Nenhum pagamento recebido neste mês.'}
             </p>
 
             {monthlySales > 0 && goalPercentage >= 100 && (
-              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-pink-100 px-4 py-2 text-sm font-medium text-pink-700">
+              <div className="mt-4 inline-flex items-center gap-2 rounded-full bg-green-100 px-4 py-2 text-sm font-medium text-green-700">
                 🎉 Meta atingida!
               </div>
             )}
