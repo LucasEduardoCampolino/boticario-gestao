@@ -1,5 +1,6 @@
 // src/pages/Finance.tsx
 import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../hooks/useToast'
 
@@ -85,6 +86,14 @@ function Finance() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
   const [selectedTab, setSelectedTab] = useState<'summary' | 'sales' | 'expenses'>('summary')
+  const [saleFilter, setSaleFilter] = useState<'all' | 'pending' | 'paid'>('all')
+
+  // Modal de pagamento
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [selectedSale, setSelectedSale] = useState<Sale | null>(null)
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentMethodModal, setPaymentMethodModal] = useState('pix')
+  const [savingPayment, setSavingPayment] = useState(false)
 
   // Modal de despesa
   const [showExpenseModal, setShowExpenseModal] = useState(false)
@@ -200,7 +209,6 @@ function Finance() {
     const totalExpenses = expenses.reduce((sum, exp) => sum + Number(exp.amount), 0)
     const balance = totalReceived - totalExpenses
 
-    // Vendas por método de pagamento
     const salesByMethod: Record<string, number> = {}
     sales.forEach(sale => {
       sale.payments.forEach(payment => {
@@ -211,16 +219,6 @@ function Finance() {
       })
     })
 
-    // Despesas por categoria
-    const expensesByCategory: Record<string, number> = {}
-    expenses.forEach(expense => {
-      const category = expense.category || 'Outros'
-      if (!expensesByCategory[category]) {
-        expensesByCategory[category] = 0
-      }
-      expensesByCategory[category] += Number(expense.amount)
-    })
-
     return {
       totalSales,
       totalReceived,
@@ -228,11 +226,93 @@ function Finance() {
       totalExpenses,
       balance,
       salesByMethod,
-      expensesByCategory,
       salesCount: sales.length,
       expensesCount: expenses.length,
     }
   }, [sales, expenses])
+
+  // Filtrar vendas
+  const filteredSales = useMemo(() => {
+    return sales.filter((sale) => {
+      if (saleFilter === 'pending') {
+        return sale.status === 'pending' || sale.status === 'partial'
+      }
+      if (saleFilter === 'paid') {
+        return sale.status === 'paid'
+      }
+      return true
+    })
+  }, [sales, saleFilter])
+
+  // Funções de pagamento
+  function handleOpenPaymentModal(sale: Sale) {
+    const paidAmount = sale.payments.reduce((sum, p) => sum + p.amount, 0)
+    const remainingAmount = sale.total - paidAmount
+
+    setSelectedSale(sale)
+    setPaymentAmount(remainingAmount.toString())
+    setPaymentMethodModal('pix')
+    setShowPaymentModal(true)
+    setError('')
+  }
+
+  async function handleRegisterPayment(e: React.FormEvent) {
+    e.preventDefault()
+    setError('')
+
+    if (!selectedSale) return
+
+    const amount = Number(paymentAmount.replace(',', '.'))
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setError('Informe um valor válido para o pagamento.')
+      return
+    }
+
+    const paidAmount = selectedSale.payments.reduce((sum, p) => sum + p.amount, 0)
+    const remainingAmount = selectedSale.total - paidAmount
+
+    if (amount > remainingAmount) {
+      setError(`O valor máximo é ${formatCurrency(remainingAmount)}.`)
+      return
+    }
+
+    try {
+      setSavingPayment(true)
+
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          sale_id: selectedSale.id,
+          amount,
+          method: paymentMethodModal,
+          payment_date: new Date().toISOString().split('T')[0],
+          notes: 'Pagamento registrado',
+        })
+
+      if (paymentError) throw paymentError
+
+      const newPaidAmount = paidAmount + amount
+      const isFullyPaid = newPaidAmount >= selectedSale.total
+
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update({ status: isFullyPaid ? 'paid' : 'partial' })
+        .eq('id', selectedSale.id)
+
+      if (updateError) throw updateError
+
+      setShowPaymentModal(false)
+      setSelectedSale(null)
+      showToast('Pagamento registrado com sucesso!', 'success')
+      await loadData()
+    } catch (err) {
+      console.error('Erro ao registrar pagamento:', err)
+      setError('Não foi possível registrar o pagamento.')
+    } finally {
+      setSavingPayment(false)
+    }
+  }
 
   // Funções de despesa
   function handleOpenExpenseModal(expense?: Expense) {
@@ -372,7 +452,7 @@ function Finance() {
           type="month"
           value={selectedMonth}
           onChange={(e) => setSelectedMonth(e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-4 py-2.5 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100 sm:w-64"
+          className="w-full rounded-xl border border-gray-300 px-4 py-2.5 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100 sm:w-64"
         />
       </section>
 
@@ -383,7 +463,7 @@ function Finance() {
           onClick={() => setSelectedTab('summary')}
           className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
             selectedTab === 'summary'
-              ? 'bg-green-600 text-white'
+              ? 'bg-pink-600 text-white'
               : 'bg-white text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -394,7 +474,7 @@ function Finance() {
           onClick={() => setSelectedTab('sales')}
           className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
             selectedTab === 'sales'
-              ? 'bg-green-600 text-white'
+              ? 'bg-pink-600 text-white'
               : 'bg-white text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -405,7 +485,7 @@ function Finance() {
           onClick={() => setSelectedTab('expenses')}
           className={`flex-1 rounded-xl px-4 py-3 text-sm font-semibold transition ${
             selectedTab === 'expenses'
-              ? 'bg-green-600 text-white'
+              ? 'bg-pink-600 text-white'
               : 'bg-white text-gray-600 hover:bg-gray-50'
           }`}
         >
@@ -414,7 +494,7 @@ function Finance() {
       </section>
 
       {/* ERRO */}
-      {error && (
+      {error && !showPaymentModal && !showExpenseModal && (
         <div className="rounded-xl bg-red-50 p-4 text-sm text-red-700">
           {error}
         </div>
@@ -423,7 +503,7 @@ function Finance() {
       {/* LOADING */}
       {loading ? (
         <div className="rounded-2xl bg-white p-12 text-center shadow-sm">
-          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
+          <div className="mx-auto h-8 w-8 animate-spin rounded-full border-4 border-pink-100 border-t-pink-600" />
           <p className="mt-3 text-sm text-gray-500">
             Carregando dados financeiros...
           </p>
@@ -433,7 +513,6 @@ function Finance() {
           {/* TAB: RESUMO */}
           {selectedTab === 'summary' && (
             <div className="space-y-6">
-              {/* CARDS PRINCIPAIS */}
               <section className="grid grid-cols-2 gap-3 lg:grid-cols-3">
                 <div className="rounded-2xl bg-white p-5 shadow-sm">
                   <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
@@ -490,7 +569,6 @@ function Finance() {
                 </div>
               </section>
 
-              {/* VENDAS POR FORMA DE PAGAMENTO */}
               <section className="rounded-2xl bg-white p-5 shadow-sm">
                 <h3 className="font-semibold text-gray-900">
                   Vendas por forma de pagamento
@@ -519,7 +597,7 @@ function Finance() {
 
                         <div className="h-2 overflow-hidden rounded-full bg-gray-100">
                           <div
-                            className="h-full rounded-full bg-green-500"
+                            className="h-full rounded-full bg-pink-500"
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -540,46 +618,112 @@ function Finance() {
           {/* TAB: VENDAS */}
           {selectedTab === 'sales' && (
             <div className="space-y-3">
-              {sales.length === 0 ? (
+              {/* Filtros de status */}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSaleFilter('all')}
+                  className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition ${
+                    saleFilter === 'all'
+                      ? 'bg-pink-600 text-white'
+                      : 'bg-white text-gray-600 hover:bg-gray-50'
+                  }`}
+                >
+                  Todas ({sales.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSaleFilter('pending')}
+                  className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition ${
+                    saleFilter === 'pending'
+                      ? 'bg-orange-600 text-white'
+                      : 'bg-orange-50 text-orange-700 hover:bg-orange-100'
+                  }`}
+                >
+                  Pendentes ({sales.filter(s => s.status === 'pending' || s.status === 'partial').length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSaleFilter('paid')}
+                  className={`flex-1 rounded-xl px-4 py-2.5 text-xs font-semibold transition ${
+                    saleFilter === 'paid'
+                      ? 'bg-green-600 text-white'
+                      : 'bg-green-50 text-green-700 hover:bg-green-100'
+                  }`}
+                >
+                  Pagas ({sales.filter(s => s.status === 'paid').length})
+                </button>
+              </div>
+
+              {/* Lista de vendas */}
+              {filteredSales.length === 0 ? (
                 <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center">
                   <div className="text-4xl">💰</div>
                   <h3 className="mt-3 font-semibold text-gray-900">
-                    Nenhuma venda neste mês
+                    Nenhuma venda encontrada
                   </h3>
                   <p className="mt-1 text-sm text-gray-500">
-                    As vendas registradas em {monthName} aparecerão aqui.
+                    Tente mudar o filtro ou selecionar outro mês.
                   </p>
                 </div>
               ) : (
-                sales.map((sale) => (
-                  <div key={sale.id} className="rounded-2xl bg-white p-4 shadow-sm">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <p className="font-semibold text-gray-900">
-                          {sale.customer?.name ?? 'Consumidor não cadastrado'}
-                        </p>
-                        <p className="mt-1 text-xs text-gray-500">
-                          {formatDate(sale.sale_date)}
-                        </p>
-                      </div>
-                      <span className={`rounded-full px-3 py-1 text-xs font-medium ${
-                        sale.status === 'paid'
-                          ? 'bg-green-50 text-green-700'
-                          : sale.status === 'pending'
-                            ? 'bg-orange-50 text-orange-700'
-                            : 'bg-blue-50 text-blue-700'
-                      }`}>
-                        {sale.status === 'paid' ? 'Paga' : sale.status === 'pending' ? 'Pendente' : 'Parcial'}
-                      </span>
+                filteredSales.map((sale) => {
+                  const paidAmount = sale.payments.reduce((sum, p) => sum + p.amount, 0)
+                  const pendingAmount = Math.max(0, sale.total - paidAmount)
+                  const isPending = sale.status === 'pending' || sale.status === 'partial'
+
+                  return (
+                    <div key={sale.id} className="rounded-2xl bg-white p-4 shadow-sm">
+                      <Link to={`/vendas/${sale.id}`} className="block">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-semibold text-gray-900 hover:text-pink-600 transition">
+                              {sale.customer?.name ?? 'Consumidor não cadastrado'}
+                            </p>
+                            <p className="mt-1 text-xs text-gray-500">
+                              {formatDate(sale.sale_date)} • ID: {sale.id.slice(0, 8)}
+                            </p>
+                          </div>
+                          <span className={`rounded-full px-3 py-1 text-xs font-medium ${
+                            sale.status === 'paid'
+                              ? 'bg-green-50 text-green-700'
+                              : sale.status === 'pending'
+                                ? 'bg-orange-50 text-orange-700'
+                                : 'bg-blue-50 text-blue-700'
+                          }`}>
+                            {sale.status === 'paid' ? 'Paga' : sale.status === 'pending' ? 'Pendente' : 'Parcial'}
+                          </span>
+                        </div>
+
+                        <div className="mt-3 flex items-end justify-between">
+                          <div className="text-sm text-gray-500">
+                            <p>Total: {formatCurrency(sale.total)}</p>
+                            {paidAmount > 0 && (
+                              <p className="text-green-600">Pago: {formatCurrency(paidAmount)}</p>
+                            )}
+                            {isPending && (
+                              <p className="font-medium text-orange-600">
+                                Pendente: {formatCurrency(pendingAmount)}
+                              </p>
+                            )}
+                          </div>
+                          <span className="text-pink-600">Ver detalhes →</span>
+                        </div>
+                      </Link>
+
+                      {/* Botão de pagamento rápido */}
+                      {isPending && (
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPaymentModal(sale)}
+                          className="mt-3 w-full rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+                        >
+                          💰 Registrar pagamento
+                        </button>
+                      )}
                     </div>
-                    <div className="mt-3 flex justify-between">
-                      <span className="text-sm text-gray-500">Total</span>
-                      <span className="font-bold text-gray-900">
-                        {formatCurrency(sale.total)}
-                      </span>
-                    </div>
-                  </div>
-                ))
+                  )
+                })
               )}
             </div>
           )}
@@ -590,7 +734,7 @@ function Finance() {
               <button
                 type="button"
                 onClick={() => handleOpenExpenseModal()}
-                className="w-full rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700"
+                className="w-full rounded-xl bg-pink-600 px-4 py-3 font-semibold text-white hover:bg-pink-700"
               >
                 + Nova despesa
               </button>
@@ -645,6 +789,104 @@ function Finance() {
         </>
       )}
 
+      {/* MODAL DE PAGAMENTO */}
+      {showPaymentModal && selectedSale && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="max-h-[95vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:max-w-lg sm:rounded-3xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Registrar pagamento</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {selectedSale.customer?.name ?? 'Consumidor não cadastrado'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPaymentModal(false)}
+                disabled={savingPayment}
+                className="rounded-xl p-2 text-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterPayment} className="mt-6 space-y-4">
+              <div className="rounded-xl bg-gray-50 p-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Total da venda</span>
+                  <span className="font-semibold text-gray-900">{formatCurrency(selectedSale.total)}</span>
+                </div>
+                <div className="mt-2 flex justify-between text-sm">
+                  <span className="text-gray-500">Já pago</span>
+                  <span className="font-semibold text-green-600">
+                    {formatCurrency(selectedSale.payments.reduce((sum, p) => sum + p.amount, 0))}
+                  </span>
+                </div>
+                <div className="mt-2 flex justify-between border-t border-gray-200 pt-2 text-sm">
+                  <span className="font-medium text-gray-700">Pendente</span>
+                  <span className="font-bold text-orange-600">
+                    {formatCurrency(Math.max(0, selectedSale.total - selectedSale.payments.reduce((sum, p) => sum + p.amount, 0)))}
+                  </span>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Valor do pagamento *</label>
+                <div className="flex items-center rounded-xl border border-gray-300 bg-white">
+                  <span className="pl-4 text-sm text-gray-400">R$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    required
+                    className="w-full bg-transparent px-3 py-3 text-right text-lg outline-none"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Forma de pagamento</label>
+                <select
+                  value={paymentMethodModal}
+                  onChange={(e) => setPaymentMethodModal(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
+                >
+                  <option value="pix">PIX</option>
+                  <option value="cash">Dinheiro</option>
+                  <option value="credit_card">Cartão de crédito</option>
+                  <option value="debit_card">Cartão de débito</option>
+                  <option value="transfer">Transferência</option>
+                </select>
+              </div>
+
+              {error && (
+                <div className="rounded-xl bg-red-50 p-3 text-sm text-red-700">{error}</div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(false)}
+                  disabled={savingPayment}
+                  className="flex-1 rounded-xl border border-gray-300 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPayment}
+                  className="flex-1 rounded-xl bg-pink-600 px-4 py-3 font-semibold text-white hover:bg-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingPayment ? 'Registrando...' : 'Confirmar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE DESPESA */}
       {showExpenseModal && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
@@ -680,7 +922,7 @@ function Finance() {
                   value={expenseForm.expense_date}
                   onChange={(e) => setExpenseForm({ ...expenseForm, expense_date: e.target.value })}
                   required
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
                 />
               </div>
 
@@ -695,7 +937,7 @@ function Finance() {
                   onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })}
                   required
                   autoFocus
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
                   placeholder="Ex.: Compra de produtos"
                 />
               </div>
@@ -708,7 +950,7 @@ function Finance() {
                   id="expense-category"
                   value={expenseForm.category}
                   onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
                 >
                   {expenseCategories.map((category) => (
                     <option key={category} value={category}>
@@ -746,7 +988,7 @@ function Finance() {
                   value={expenseForm.notes}
                   onChange={(e) => setExpenseForm({ ...expenseForm, notes: e.target.value })}
                   rows={3}
-                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-green-600 focus:ring-2 focus:ring-green-100"
+                  className="w-full resize-none rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
                   placeholder="Observações adicionais..."
                 />
               </div>
@@ -770,7 +1012,7 @@ function Finance() {
                 <button
                   type="submit"
                   disabled={savingExpense}
-                  className="flex-1 rounded-xl bg-green-600 px-4 py-3 font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="flex-1 rounded-xl bg-pink-600 px-4 py-3 font-semibold text-white hover:bg-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {savingExpense ? 'Salvando...' : editingExpense ? 'Atualizar' : 'Salvar'}
                 </button>

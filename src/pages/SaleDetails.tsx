@@ -83,6 +83,12 @@ function SaleDetails() {
   const [cancelling, setCancelling] = useState(false)
   const [showCancelModal, setShowCancelModal] = useState(false)
 
+  // Modal de pagamento
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [paymentAmount, setPaymentAmount] = useState('')
+  const [paymentMethod, setPaymentMethod] = useState('pix')
+  const [savingPayment, setSavingPayment] = useState(false)
+
   useEffect(() => {
     loadSale()
   }, [id])
@@ -147,7 +153,7 @@ function SaleDetails() {
     } catch (err) {
       console.error('Erro ao carregar venda:', err)
       showToast('Não foi possível carregar os detalhes da venda.', 'error')
-      navigate('/vendas')
+      navigate('/financeiro')
     } finally {
       setLoading(false)
     }
@@ -186,11 +192,72 @@ function SaleDetails() {
     return Math.max(0, sale.total - getPaidAmount())
   }
 
+  function handleOpenPaymentModal() {
+    setPaymentAmount(getPendingAmount().toString())
+    setPaymentMethod('pix')
+    setShowPaymentModal(true)
+  }
+
+  async function handleRegisterPayment(e: React.FormEvent) {
+    e.preventDefault()
+
+    if (!sale) return
+
+    const amount = Number(paymentAmount.replace(',', '.'))
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showToast('Informe um valor válido.', 'error')
+      return
+    }
+
+    const remainingAmount = getPendingAmount()
+
+    if (amount > remainingAmount) {
+      showToast(`O valor máximo é ${formatCurrency(remainingAmount)}.`, 'error')
+      return
+    }
+
+    try {
+      setSavingPayment(true)
+
+      const { error: paymentError } = await supabase
+        .from('payments')
+        .insert({
+          sale_id: sale.id,
+          amount,
+          method: paymentMethod,
+          payment_date: new Date().toISOString().split('T')[0],
+          notes: 'Pagamento registrado',
+        })
+
+      if (paymentError) throw paymentError
+
+      const newPaidAmount = getPaidAmount() + amount
+      const isFullyPaid = newPaidAmount >= sale.total
+
+      const { error: updateError } = await supabase
+        .from('sales')
+        .update({ status: isFullyPaid ? 'paid' : 'partial' })
+        .eq('id', sale.id)
+
+      if (updateError) throw updateError
+
+      setShowPaymentModal(false)
+      showToast('Pagamento registrado com sucesso!', 'success')
+      await loadSale()
+    } catch (err) {
+      console.error('Erro ao registrar pagamento:', err)
+      showToast('Não foi possível registrar o pagamento.', 'error')
+    } finally {
+      setSavingPayment(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center">
-          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-gray-200 border-t-green-600" />
+          <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-pink-100 border-t-pink-600" />
           <p className="mt-3 text-sm text-gray-500">Carregando venda...</p>
         </div>
       </div>
@@ -206,16 +273,17 @@ function SaleDetails() {
           A venda que você procura não existe ou foi removida.
         </p>
         <Link
-          to="/vendas"
-          className="mt-5 inline-block rounded-xl bg-green-600 px-5 py-3 text-sm font-semibold text-white hover:bg-green-700"
+          to="/financeiro"
+          className="mt-5 inline-block rounded-xl bg-pink-600 px-5 py-3 text-sm font-semibold text-white hover:bg-pink-700"
         >
-          Voltar para vendas
+          Voltar para financeiro
         </Link>
       </div>
     )
   }
 
   const canCancel = sale.status !== 'cancelled'
+  const isPending = sale.status === 'pending' || sale.status === 'partial'
 
   return (
     <div className="space-y-6">
@@ -224,10 +292,10 @@ function SaleDetails() {
         <div>
           <button
             type="button"
-            onClick={() => navigate('/vendas')}
+            onClick={() => navigate('/financeiro')}
             className="mb-2 flex items-center gap-1 text-sm text-gray-500 hover:text-gray-700"
           >
-            ← Voltar para vendas
+            ← Voltar para financeiro
           </button>
 
           <h2 className="text-2xl font-bold text-gray-900">
@@ -285,6 +353,17 @@ function SaleDetails() {
             </p>
           </div>
         </div>
+
+        {/* Botão de pagamento */}
+        {isPending && (
+          <button
+            type="button"
+            onClick={handleOpenPaymentModal}
+            className="mt-4 w-full rounded-xl bg-blue-50 px-4 py-3 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+          >
+            💰 Registrar pagamento
+          </button>
+        )}
       </section>
 
       {/* Cliente */}
@@ -396,6 +475,96 @@ function SaleDetails() {
           <h3 className="font-semibold text-gray-900">Observações</h3>
           <p className="mt-2 text-gray-600">{sale.notes}</p>
         </section>
+      )}
+
+      {/* Modal de pagamento */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
+          <div className="max-h-[95vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:max-w-lg sm:rounded-3xl">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">Registrar pagamento</h3>
+                <p className="mt-1 text-sm text-gray-500">
+                  {sale.customer?.name ?? 'Consumidor não cadastrado'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPaymentModal(false)}
+                disabled={savingPayment}
+                className="rounded-xl p-2 text-xl text-gray-400 hover:bg-gray-100 hover:text-gray-700 disabled:opacity-50"
+              >
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleRegisterPayment} className="mt-6 space-y-4">
+              <div className="rounded-xl bg-gray-50 p-4">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">Total da venda</span>
+                  <span className="font-semibold text-gray-900">{formatCurrency(sale.total)}</span>
+                </div>
+                <div className="mt-2 flex justify-between text-sm">
+                  <span className="text-gray-500">Já pago</span>
+                  <span className="font-semibold text-green-600">{formatCurrency(getPaidAmount())}</span>
+                </div>
+                <div className="mt-2 flex justify-between border-t border-gray-200 pt-2 text-sm">
+                  <span className="font-medium text-gray-700">Pendente</span>
+                  <span className="font-bold text-orange-600">{formatCurrency(getPendingAmount())}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Valor do pagamento *</label>
+                <div className="flex items-center rounded-xl border border-gray-300 bg-white">
+                  <span className="pl-4 text-sm text-gray-400">R$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    required
+                    className="w-full bg-transparent px-3 py-3 text-right text-lg outline-none"
+                    placeholder="0,00"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-gray-700">Forma de pagamento</label>
+                <select
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 text-sm outline-none focus:border-pink-500 focus:ring-2 focus:ring-pink-100"
+                >
+                  <option value="pix">PIX</option>
+                  <option value="cash">Dinheiro</option>
+                  <option value="credit_card">Cartão de crédito</option>
+                  <option value="debit_card">Cartão de débito</option>
+                  <option value="transfer">Transferência</option>
+                </select>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPaymentModal(false)}
+                  disabled={savingPayment}
+                  className="flex-1 rounded-xl border border-gray-300 px-4 py-3 font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={savingPayment}
+                  className="flex-1 rounded-xl bg-pink-600 px-4 py-3 font-semibold text-white hover:bg-pink-700 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {savingPayment ? 'Registrando...' : 'Confirmar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Modal de cancelamento */}
