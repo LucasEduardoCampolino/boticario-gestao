@@ -1,4 +1,4 @@
-// Service Worker para SiEncante
+// public/sw.js
 const CACHE_NAME = 'siencante-v1';
 const RUNTIME_CACHE = 'siencante-runtime-v1';
 
@@ -40,7 +40,7 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Estratégia de cache: Network First para API, Cache First para estáticos
+// Fetch - CORRIGIDO para navegação
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
@@ -55,7 +55,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Para navegação, usar Network First
+  // Para navegação, usar Network First com fallback para index.html
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
@@ -67,11 +67,13 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() => {
+          // Se offline, tentar cache primeiro
           return caches.match(request)
             .then((cachedResponse) => {
               if (cachedResponse) {
                 return cachedResponse;
               }
+              // Fallback para index.html
               return caches.match('/index.html');
             });
         })

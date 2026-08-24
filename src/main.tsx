@@ -1,7 +1,7 @@
 // src/main.tsx
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router-dom'
+import { HashRouter } from 'react-router-dom' // ← Mudar para HashRouter
 import App from './App'
 import './index.css'
 
@@ -21,8 +21,8 @@ if ('serviceWorker' in navigator) {
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <HashRouter>  {/* ← Mudar para HashRouter */}
       <App />
-    </BrowserRouter>
+    </HashRouter>
   </StrictMode>,
 )
