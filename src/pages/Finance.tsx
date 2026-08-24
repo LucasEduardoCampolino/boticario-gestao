@@ -376,56 +376,111 @@ async function handleRegisterPayment(e: React.FormEvent) {
   }
 
   async function handleSaveExpense(e: React.FormEvent) {
-    e.preventDefault()
-    setError('')
+  e.preventDefault()
+  setError('')
 
-    const amount = Number(expenseForm.amount.replace(',', '.'))
+  const amount = Number(expenseForm.amount.replace(',', '.'))
 
-    if (!expenseForm.description.trim()) {
-      setError('Informe a descrição da despesa.')
-      return
+  if (!expenseForm.description.trim()) {
+    setError('Informe a descrição da despesa.')
+    return
+  }
+
+  if (!Number.isFinite(amount) || amount <= 0) {
+    setError('Informe um valor válido para a despesa.')
+    return
+  }
+
+  try {
+    setSavingExpense(true)
+
+    // 1. Obter usuário autenticado
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser()
+
+    if (userError) throw userError
+    if (!user) throw new Error('Usuário não autenticado')
+
+    console.log('Usuário autenticado:', user.id)
+    console.log('Dados da despesa:', {
+      expense_date: expenseForm.expense_date,
+      description: expenseForm.description.trim(),
+      category: expenseForm.category,
+      amount,
+    })
+
+    const expenseData = {
+      user_id: user.id, // ← ADICIONAR user_id
+      expense_date: expenseForm.expense_date,
+      description: expenseForm.description.trim(),
+      category: expenseForm.category,
+      amount,
+      notes: expenseForm.notes.trim() || null,
     }
 
-    if (!Number.isFinite(amount) || amount <= 0) {
-      setError('Informe um valor válido para a despesa.')
-      return
+    if (editingExpense) {
+      // Atualizar despesa existente
+      const { data: updatedData, error: updateError } = await supabase
+        .from('expenses')
+        .update({
+          expense_date: expenseForm.expense_date,
+          description: expenseForm.description.trim(),
+          category: expenseForm.category,
+          amount,
+          notes: expenseForm.notes.trim() || null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', editingExpense.id)
+        .eq('user_id', user.id)
+        .select()
+        .single()
+
+      if (updateError) {
+        console.error('Erro ao atualizar despesa:', updateError)
+        throw updateError
+      }
+
+      console.log('Despesa atualizada:', updatedData)
+      showToast('Despesa atualizada com sucesso!', 'success')
+    } else {
+      // Criar nova despesa
+      const { data: insertedData, error: insertError } = await supabase
+        .from('expenses')
+        .insert(expenseData)
+        .select()
+        .single()
+
+      if (insertError) {
+        console.error('Erro ao inserir despesa:', insertError)
+        throw insertError
+      }
+
+      console.log('Despesa inserida:', insertedData)
+      showToast('Despesa adicionada com sucesso!', 'success')
     }
 
-    try {
-      setSavingExpense(true)
-
-      const expenseData = {
-        expense_date: expenseForm.expense_date,
-        description: expenseForm.description.trim(),
-        category: expenseForm.category,
-        amount,
-        notes: expenseForm.notes.trim() || null,
-      }
-
-      if (editingExpense) {
-        const { error: updateError } = await supabase
-          .from('expenses')
-          .update(expenseData)
-          .eq('id', editingExpense.id)
-
-        if (updateError) throw updateError
-        showToast('Despesa atualizada com sucesso!', 'success')
-      } else {
-        const { error: insertError } = await supabase
-          .from('expenses')
-          .insert(expenseData)
-
-        if (insertError) throw insertError
-        showToast('Despesa adicionada com sucesso!', 'success')
-      }
-
-      setShowExpenseModal(false)
-      setEditingExpense(null)
-      await loadData()
+    setShowExpenseModal(false)
+    setEditingExpense(null)
+    setExpenseForm({
+      expense_date: new Date().toISOString().split('T')[0],
+      description: '',
+      category: 'Compras',
+      amount: '',
+      notes: '',
+    })
+    await loadData()
     } catch (err) {
-      console.error('Erro ao salvar despesa:', err)
-      setError('Não foi possível salvar a despesa.')
-      showToast('Não foi possível salvar a despesa.', 'error')
+      console.error('Erro completo:', err)
+      
+      if (err instanceof Error) {
+        setError(err.message)
+        showToast(err.message, 'error')
+      } else {
+        setError('Não foi possível salvar a despesa.')
+        showToast('Não foi possível salvar a despesa.', 'error')
+      }
     } finally {
       setSavingExpense(false)
     }
