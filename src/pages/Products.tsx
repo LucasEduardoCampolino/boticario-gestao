@@ -44,6 +44,17 @@ const initialForm: ProductForm = {
   minimum_stock: '0',
 }
 
+const productCategories = [
+  'Perfumaria',
+  'Maquiagem',
+  'Cabelos',
+  'Corpo e Banho',
+  'Skincare',
+  'Acessórios',
+  'Kits e Presentes',
+  'Outros',
+]
+
 function Products() {
   const { showToast } = useToast()
   const [products, setProducts] = useState<Product[]>([])
@@ -865,7 +876,7 @@ function Products() {
         )}
       </section>
 
-            {/* MODAL DE CADASTRO / EDIÇÃO */}
+      {/* MODAL DE CADASTRO / EDIÇÃO */}
       {showForm && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-0 sm:items-center sm:p-4">
           <div className="max-h-[95vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-xl sm:max-w-lg sm:rounded-3xl">
@@ -890,6 +901,7 @@ function Products() {
             </div>
 
             <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+              {/* CÓDIGO */}
               <div>
                 <label htmlFor="product-code" className="mb-1 block text-sm font-medium text-gray-700">
                   Código
@@ -904,6 +916,7 @@ function Products() {
                 />
               </div>
 
+              {/* NOME */}
               <div>
                 <label htmlFor="product-name" className="mb-1 block text-sm font-medium text-gray-700">
                   Nome *
@@ -920,20 +933,28 @@ function Products() {
                 />
               </div>
 
+              {/* CATEGORIA - AGORA É UM SELECT */}
               <div>
                 <label htmlFor="product-category" className="mb-1 block text-sm font-medium text-gray-700">
-                  Categoria
+                  Categoria *
                 </label>
-                <input
+                <select
                   id="product-category"
-                  type="text"
                   value={form.category}
                   onChange={(event) => handleChange('category', event.target.value)}
-                  className="w-full rounded-xl border border-gray-300 px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
-                  placeholder="Ex.: Perfumaria"
-                />
+                  required
+                  className="w-full rounded-xl border border-gray-300 bg-white px-4 py-3 outline-none focus:border-pink-600 focus:ring-2 focus:ring-pink-100"
+                >
+                  <option value="">Selecione uma categoria...</option>
+                  {productCategories.map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
               </div>
 
+              {/* PREÇOS */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="product-cost" className="mb-1 block text-sm font-medium text-gray-700">
@@ -970,6 +991,7 @@ function Products() {
                 </div>
               </div>
 
+              {/* ESTOQUE */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label htmlFor="product-stock" className="mb-1 block text-sm font-medium text-gray-700">
