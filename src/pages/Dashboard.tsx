@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import NewSale from '../components/NewSale'
 import { useToast } from '../hooks/useToast'
+import { getMonthRange } from '../lib/date'
 
 function Dashboard() {
   const { showToast } = useToast()
@@ -57,10 +58,8 @@ function Dashboard() {
         setMonthlyGoal(Number(profileData?.monthly_sales_goal || 0))
       }
 
-      // Calcular vendas do mês selecionado
-      const [year, month] = selectedMonth.split('-')
-      const startOfMonth = `${year}-${month}-01`
-      const endOfMonth = `${year}-${month}-31`
+      // ✅ DEPOIS:
+      const { startDate: startOfMonth, endDate: endOfMonth } = getMonthRange(selectedMonth)
 
       // Buscar TODAS as vendas do mês (pagas e pendentes)
       const { data: allSalesData, error: salesError } = await supabase

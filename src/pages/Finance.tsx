@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useToast } from '../hooks/useToast'
+import { getMonthRange } from '../lib/date'
 
 type Sale = {
   id: string
@@ -119,9 +120,8 @@ function Finance() {
       setLoading(true)
       setError('')
 
-      const [year, month] = selectedMonth.split('-')
-      const startDate = `${year}-${month}-01`
-      const endDate = `${year}-${month}-31`
+      // ✅ DEPOIS:
+      const { startDate, endDate } = getMonthRange(selectedMonth)
 
       // Buscar vendas com pagamentos
       const { data: salesData, error: salesError } = await supabase
