@@ -1,75 +1,50 @@
-# React + TypeScript + Vite
+# 💖 SiEncante
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Sistema de gestão completo para revendedoras, com controle de vendas, clientes, produtos, estoque e finanças.
 
-Currently, two official plugins are available:
+![Status](https://img.shields.io/badge/status-ativo-pink)
+![Versão](https://img.shields.io/badge/versão-1.0.0-pink)
+![Licença](https://img.shields.io/badge/licença-MIT-pink)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## 📱 Sobre o Projeto
 
-## React Compiler
+O **SiEncante** é um PWA (Progressive Web App) desenvolvido para facilitar a gestão de pequenas revendas. Com uma interface moderna e intuitiva, permite controlar todo o ciclo de vendas, desde o cadastro de produtos até o acompanhamento financeiro completo.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### ✨ Principais Recursos
 
-## Expanding the ESLint configuration
+- 📊 **Dashboard** com visão geral de vendas, metas e lucros
+- 🛍️ **Vendas** com suporte a pagamento à vista e pendente
+- 👥 **Clientes** com histórico de compras e produtos mais comprados
+- 📦 **Estoque** com controle de entrada/saída e alertas de estoque baixo
+- 💰 **Financeiro** com resumo, despesas e fluxo de caixa
+- 📈 **Relatórios** de produtos mais vendidos e melhores clientes
+- ⚙️ **Configurações** de perfil, senha e backup
+- 📲 **Instalável** no celular como aplicativo nativo
+- 🌐 **Funciona offline** após a primeira instalação
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+## 🚀 Tecnologias
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+- **[React](https://react.dev/)** + **[TypeScript](https://www.typescriptlang.org/)** - Frontend
+- **[Vite](https://vitejs.dev/)** - Build e dev server
+- **[Tailwind CSS](https://tailwindcss.com/)** - Estilização
+- **[React Router](https://reactrouter.com/)** - Navegação
+- **[Supabase](https://supabase.com/)** - Backend (Auth + Database)
+- **[PWA](https://web.dev/progressive-web-apps/)** - Progressive Web App
+- **[Vercel](https://vercel.com/)** - Deploy
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+## 📋 Pré-requisitos
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+Antes de começar, você vai precisar ter instalado:
 
-```
+- [Node.js](https://nodejs.org/) (v18 ou superior)
+- [npm](https://www.npmjs.com/) ou [yarn](https://yarnpkg.com/)
+- Conta no [Supabase](https://supabase.com/)
+- Conta no [Vercel](https://vercel.com/) (para deploy)
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 🔧 Instalação
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 1. Clone o repositório
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-
-```
+```bash
+git clone https://github.com/LucasEduardoCampolino/boticario-gestao.git
+cd boticario-gestao
